@@ -1,0 +1,18 @@
+[
+  {
+    "id": "d114f8764f758222",
+    "createdAt": "2026-09-22T18:46:08.760Z",
+    "patientId": "8e20da44981134b6",
+    "doctorId": "0bc2ab69072a986a",
+    "type": "video",
+    "status": "ended",
+    "ratePerMin": 25,
+    "elapsedSec": 260,
+    "amountCharged": 108.42,
+    "startTime": "2026-09-22T18:46:08.760Z",
+    "channelName": "consult_0bafca97c96a4c4a",
+    "updatedAt": "2026-09-22T18:50:30.422Z",
+    "endedReason": "manual",
+    "endTime": "2026-09-22T18:50:30.421Z"
+  }
+]

@@ -1,0 +1,20 @@
+[
+  {
+    "id": "0bc2ab69072a986a",
+    "createdAt": "2026-09-22T18:45:42.929Z",
+    "name": "All Of you",
+    "email": "rkhero1212@gmail.com",
+    "passwordSalt": "7c76d93bcba02503a86097b6a215cdbb",
+    "passwordHash": "2112dc8e165c469b59f975a0778117ca30e6387d27b70e810a29aff20b4e82dd645ed5d8703ed03ffc48f0f7d5550f29eee44a16b9c8bbb44d659f3ef220aee4",
+    "state": "Unassigned",
+    "specialization": "dermetologist",
+    "rates": {
+      "chat": 15,
+      "call": 20,
+      "video": 25
+    },
+    "status": "online",
+    "authToken": "ff714ca0a32784905383f0bbfc5a99f7b7191ef165bfef64",
+    "updatedAt": "2026-09-22T18:50:30.423Z"
+  }
+]

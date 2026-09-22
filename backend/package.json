@@ -1,0 +1,10 @@
+{
+  "name": "clinicos-consult-module",
+  "version": "1.0.0",
+  "description": "Per-minute doctor consultation billing module (chat/call/video) for ClinicOS",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {}
+}

@@ -1,0 +1,14 @@
+[
+  {
+    "id": "8e20da44981134b6",
+    "createdAt": "2026-09-22T18:41:40.119Z",
+    "name": "rk hero",
+    "email": "rkhero22222@gmail.com",
+    "phone": "8239245096",
+    "passwordSalt": "2e4ce3713bada6dfddf665510e81b154",
+    "passwordHash": "347064ceb792945544af183cd56c5a94997d9e7c5acc0ad5e6cbfb624fa439457978958c8e71ee0407299fd519c080776455ba77a94285169e4e1b30ff40ad11",
+    "walletBalance": 1891.58,
+    "authToken": "45fd973d393b4e8e54e7880c7d11a4a3d5c2ff510b7d1c0a",
+    "updatedAt": "2026-09-22T18:50:28.995Z"
+  }
+]

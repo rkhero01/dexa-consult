@@ -1,0 +1,270 @@
+[
+  {
+    "id": "3c7fe91356f10b98",
+    "createdAt": "2026-09-22T18:41:57.416Z",
+    "patientId": "8e20da44981134b6",
+    "type": "recharge",
+    "amount": 2000,
+    "note": "Recharge"
+  },
+  {
+    "id": "e8d1851be348ba6f",
+    "createdAt": "2026-09-22T18:46:18.774Z",
+    "patientId": "8e20da44981134b6",
+    "doctorId": "0bc2ab69072a986a",
+    "sessionId": "d114f8764f758222",
+    "type": "debit",
+    "amount": 4.17,
+    "note": "video consult tick (10s)"
+  },
+  {
+    "id": "5f72d79c7e9e5f8b",
+    "createdAt": "2026-09-22T18:46:28.789Z",
+    "patientId": "8e20da44981134b6",
+    "doctorId": "0bc2ab69072a986a",
+    "sessionId": "d114f8764f758222",
+    "type": "debit",
+    "amount": 4.17,
+    "note": "video consult tick (10s)"
+  },
+  {
+    "id": "1deb89669314ba1e",
+    "createdAt": "2026-09-22T18:46:38.798Z",
+    "patientId": "8e20da44981134b6",
+    "doctorId": "0bc2ab69072a986a",
+    "sessionId": "d114f8764f758222",
+    "type": "debit",
+    "amount": 4.17,
+    "note": "video consult tick (10s)"
+  },
+  {
+    "id": "d33e0c3745ef3fa2",
+    "createdAt": "2026-09-22T18:46:48.805Z",
+    "patientId": "8e20da44981134b6",
+    "doctorId": "0bc2ab69072a986a",
+    "sessionId": "d114f8764f758222",
+    "type": "debit",
+    "amount": 4.17,
+    "note": "video consult tick (10s)"
+  },
+  {
+    "id": "222144049c3601e5",
+    "createdAt": "2026-09-22T18:46:58.810Z",
+    "patientId": "8e20da44981134b6",
+    "doctorId": "0bc2ab69072a986a",
+    "sessionId": "d114f8764f758222",
+    "type": "debit",
+    "amount": 4.17,
+    "note": "video consult tick (10s)"
+  },
+  {
+    "id": "ab096070e2f05ce7",
+    "createdAt": "2026-09-22T18:47:08.825Z",
+    "patientId": "8e20da44981134b6",
+    "doctorId": "0bc2ab69072a986a",
+    "sessionId": "d114f8764f758222",
+    "type": "debit",
+    "amount": 4.17,
+    "note": "video consult tick (10s)"
+  },
+  {
+    "id": "309a4aba1cb6afb1",
+    "createdAt": "2026-09-22T18:47:18.842Z",
+    "patientId": "8e20da44981134b6",
+    "doctorId": "0bc2ab69072a986a",
+    "sessionId": "d114f8764f758222",
+    "type": "debit",
+    "amount": 4.17,
+    "note": "video consult tick (10s)"
+  },
+  {
+    "id": "e6a9d2627679c76f",
+    "createdAt": "2026-09-22T18:47:28.843Z",
+    "patientId": "8e20da44981134b6",
+    "doctorId": "0bc2ab69072a986a",
+    "sessionId": "d114f8764f758222",
+    "type": "debit",
+    "amount": 4.17,
+    "note": "video consult tick (10s)"
+  },
+  {
+    "id": "738918a3194b52fa",
+    "createdAt": "2026-09-22T18:47:38.859Z",
+    "patientId": "8e20da44981134b6",
+    "doctorId": "0bc2ab69072a986a",
+    "sessionId": "d114f8764f758222",
+    "type": "debit",
+    "amount": 4.17,
+    "note": "video consult tick (10s)"
+  },
+  {
+    "id": "d6c6466d75378d1c",
+    "createdAt": "2026-09-22T18:47:48.868Z",
+    "patientId": "8e20da44981134b6",
+    "doctorId": "0bc2ab69072a986a",
+    "sessionId": "d114f8764f758222",
+    "type": "debit",
+    "amount": 4.17,
+    "note": "video consult tick (10s)"
+  },
+  {
+    "id": "535cdf63cf1cef57",
+    "createdAt": "2026-09-22T18:47:58.870Z",
+    "patientId": "8e20da44981134b6",
+    "doctorId": "0bc2ab69072a986a",
+    "sessionId": "d114f8764f758222",
+    "type": "debit",
+    "amount": 4.17,
+    "note": "video consult tick (10s)"
+  },
+  {
+    "id": "2cc5b1ef789a3c54",
+    "createdAt": "2026-09-22T18:48:08.870Z",
+    "patientId": "8e20da44981134b6",
+    "doctorId": "0bc2ab69072a986a",
+    "sessionId": "d114f8764f758222",
+    "type": "debit",
+    "amount": 4.17,
+    "note": "video consult tick (10s)"
+  },
+  {
+    "id": "7173765b68bff900",
+    "createdAt": "2026-09-22T18:48:18.892Z",
+    "patientId": "8e20da44981134b6",
+    "doctorId": "0bc2ab69072a986a",
+    "sessionId": "d114f8764f758222",
+    "type": "debit",
+    "amount": 4.17,
+    "note": "video consult tick (10s)"
+  },
+  {
+    "id": "a693fa372efaf74d",
+    "createdAt": "2026-09-22T18:48:28.902Z",
+    "patientId": "8e20da44981134b6",
+    "doctorId": "0bc2ab69072a986a",
+    "sessionId": "d114f8764f758222",
+    "type": "debit",
+    "amount": 4.17,
+    "note": "video consult tick (10s)"
+  },
+  {
+    "id": "3672af85a7800d84",
+    "createdAt": "2026-09-22T18:48:38.905Z",
+    "patientId": "8e20da44981134b6",
+    "doctorId": "0bc2ab69072a986a",
+    "sessionId": "d114f8764f758222",
+    "type": "debit",
+    "amount": 4.17,
+    "note": "video consult tick (10s)"
+  },
+  {
+    "id": "bb443f840d8f1634",
+    "createdAt": "2026-09-22T18:48:48.918Z",
+    "patientId": "8e20da44981134b6",
+    "doctorId": "0bc2ab69072a986a",
+    "sessionId": "d114f8764f758222",
+    "type": "debit",
+    "amount": 4.17,
+    "note": "video consult tick (10s)"
+  },
+  {
+    "id": "74705b65446e7d3f",
+    "createdAt": "2026-09-22T18:48:58.934Z",
+    "patientId": "8e20da44981134b6",
+    "doctorId": "0bc2ab69072a986a",
+    "sessionId": "d114f8764f758222",
+    "type": "debit",
+    "amount": 4.17,
+    "note": "video consult tick (10s)"
+  },
+  {
+    "id": "bbb6940bc7905f1d",
+    "createdAt": "2026-09-22T18:49:08.937Z",
+    "patientId": "8e20da44981134b6",
+    "doctorId": "0bc2ab69072a986a",
+    "sessionId": "d114f8764f758222",
+    "type": "debit",
+    "amount": 4.17,
+    "note": "video consult tick (10s)"
+  },
+  {
+    "id": "3a6566c02bf0e24c",
+    "createdAt": "2026-09-22T18:49:18.938Z",
+    "patientId": "8e20da44981134b6",
+    "doctorId": "0bc2ab69072a986a",
+    "sessionId": "d114f8764f758222",
+    "type": "debit",
+    "amount": 4.17,
+    "note": "video consult tick (10s)"
+  },
+  {
+    "id": "1b9b208ec0721f28",
+    "createdAt": "2026-09-22T18:49:28.940Z",
+    "patientId": "8e20da44981134b6",
+    "doctorId": "0bc2ab69072a986a",
+    "sessionId": "d114f8764f758222",
+    "type": "debit",
+    "amount": 4.17,
+    "note": "video consult tick (10s)"
+  },
+  {
+    "id": "982cc357e18e24c5",
+    "createdAt": "2026-09-22T18:49:38.957Z",
+    "patientId": "8e20da44981134b6",
+    "doctorId": "0bc2ab69072a986a",
+    "sessionId": "d114f8764f758222",
+    "type": "debit",
+    "amount": 4.17,
+    "note": "video consult tick (10s)"
+  },
+  {
+    "id": "1d1db6d16956f330",
+    "createdAt": "2026-09-22T18:49:48.966Z",
+    "patientId": "8e20da44981134b6",
+    "doctorId": "0bc2ab69072a986a",
+    "sessionId": "d114f8764f758222",
+    "type": "debit",
+    "amount": 4.17,
+    "note": "video consult tick (10s)"
+  },
+  {
+    "id": "58dbf0d50abe48e7",
+    "createdAt": "2026-09-22T18:49:58.978Z",
+    "patientId": "8e20da44981134b6",
+    "doctorId": "0bc2ab69072a986a",
+    "sessionId": "d114f8764f758222",
+    "type": "debit",
+    "amount": 4.17,
+    "note": "video consult tick (10s)"
+  },
+  {
+    "id": "a6b4de65e5766c2c",
+    "createdAt": "2026-09-22T18:50:08.992Z",
+    "patientId": "8e20da44981134b6",
+    "doctorId": "0bc2ab69072a986a",
+    "sessionId": "d114f8764f758222",
+    "type": "debit",
+    "amount": 4.17,
+    "note": "video consult tick (10s)"
+  },
+  {
+    "id": "b8cc82ea1746818c",
+    "createdAt": "2026-09-22T18:50:18.993Z",
+    "patientId": "8e20da44981134b6",
+    "doctorId": "0bc2ab69072a986a",
+    "sessionId": "d114f8764f758222",
+    "type": "debit",
+    "amount": 4.17,
+    "note": "video consult tick (10s)"
+  },
+  {
+    "id": "87b5417cc9693cc3",
+    "createdAt": "2026-09-22T18:50:28.996Z",
+    "patientId": "8e20da44981134b6",
+    "doctorId": "0bc2ab69072a986a",
+    "sessionId": "d114f8764f758222",
+    "type": "debit",
+    "amount": 4.17,
+    "note": "video consult tick (10s)"
+  }
+]
