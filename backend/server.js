@@ -61,11 +61,19 @@ const MIME_TYPES = {
   '.woff2': 'font/woff2',
 };
 
-function serveStaticFile(res, filePath) {
+function serveStaticFile(res, filePath, isHead = false) {
   try {
     if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) return false;
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    if (isHead) {
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Access-Control-Allow-Origin': '*',
+      });
+      res.end();
+      return true;
+    }
     const content = fs.readFileSync(filePath);
     res.writeHead(200, {
       'Content-Type': contentType,
@@ -256,13 +264,14 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Static files & Root handler
-    if (req.method === 'GET' && parts[0] !== 'api') {
+    if (['GET', 'HEAD'].includes(req.method) && parts[0] !== 'api') {
+      const isHead = req.method === 'HEAD';
       if (parts.length === 0) {
         // If visiting root in a browser, serve platform.html; otherwise return health check
         const acceptsHtml = req.headers.accept && req.headers.accept.includes('text/html');
         if (acceptsHtml) {
           const platformPath = path.join(ROOT_DIR, 'platform.html');
-          if (serveStaticFile(res, platformPath)) return;
+          if (serveStaticFile(res, platformPath, isHead)) return;
         }
         return send(res, 200, { status: 'ClinicOS consult module running', time: new Date().toISOString() });
       }
@@ -271,7 +280,7 @@ const server = http.createServer(async (req, res) => {
       const safePath = path.normalize(decodeURIComponent(url.pathname)).replace(/^(\.\.[\/\\])+/, '');
       const filePath = path.join(ROOT_DIR, safePath);
       // Prevent directory traversal
-      if (filePath.startsWith(ROOT_DIR) && serveStaticFile(res, filePath)) {
+      if (filePath.startsWith(ROOT_DIR) && serveStaticFile(res, filePath, isHead)) {
         return;
       }
     }
