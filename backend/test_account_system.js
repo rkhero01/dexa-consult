@@ -85,6 +85,11 @@ async function runTests() {
     assert(indexRes.raw.includes('Dexa Consult'), 'index.html contains Dexa Consult branding');
     console.log('   ✓ Static serving of index.html verified');
 
+    const logoRes = await request('GET', '/assets/dexa-clinic-logo.png');
+    assert.strictEqual(logoRes.status, 200, 'GET /assets/dexa-clinic-logo.png should return 200');
+    assert.strictEqual(logoRes.headers['content-type'], 'image/png');
+    console.log('   ✓ Static serving of logo image verified');
+
     // Test 2: Patient Signup
     console.log('\n2. Patient Signup POST /api/auth/patient/signup');
     const testPatientEmail = `testpatient_${Date.now()}@example.com`;
