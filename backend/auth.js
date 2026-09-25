@@ -134,6 +134,9 @@ function safePatient(p) {
   return rest;
 }
 
+// Require external production emailService
+const emailService = require('./emailService');
+
 // ============================================================================
 // PASSWORD RESET ARCHITECTURE
 // ============================================================================
@@ -142,7 +145,7 @@ function forgotPassword(collection, body) {
   const genericResponse = {
     status: 200,
     body: {
-      message: 'If an account exists with this email, password reset instructions have been generated.',
+      message: 'If an account exists with this email, password reset instructions have been sent to your email.',
     },
   };
 
@@ -168,25 +171,17 @@ function forgotPassword(collection, body) {
     resetPasswordExpires: expires,
   });
 
-  // Call email notification service hook
+  const role = collection === 'doctors' ? 'doctor' : 'patient';
+
+  // Call production email notification service to send clickable reset link
   emailService.sendPasswordResetEmail({
     to: user.email,
     name: user.name,
     resetToken: rawToken,
+    role,
   });
 
-  // Safe development-only mechanism: clearly disabled in production
-  if (process.env.NODE_ENV !== 'production') {
-    console.log(`[DEV ONLY] Password reset token for ${user.email} (${collection}): ${rawToken}`);
-    return {
-      status: 200,
-      body: {
-        ...genericResponse.body,
-        devResetToken: rawToken, // For automated testing and local dev only
-      },
-    };
-  }
-
+  // Always return identical generic success response; never leak raw token in API response
   return genericResponse;
 }
 
@@ -206,7 +201,7 @@ function resetPassword(collection, body) {
   const user = db[collection].where((u) => u.resetPasswordToken === hashedToken)[0];
 
   if (!user || !user.resetPasswordExpires || new Date(user.resetPasswordExpires) < new Date()) {
-    return { status: 400, body: { error: 'Invalid or expired password reset token' } };
+    return { status: 400, body: { error: 'This password reset link is invalid or has expired. Please request a new one.' } };
   }
 
   const { salt, hash } = hashPassword(newPassword);
@@ -236,19 +231,6 @@ function doctorForgotPassword(body) {
 function doctorResetPassword(body) {
   return resetPassword('doctors', body);
 }
-
-// ============================================================================
-// EMAIL NOTIFICATION SERVICE (Architecture for Real Email Provider Integration)
-// ============================================================================
-// When connecting an email provider in production (e.g., SendGrid, AWS SES, Resend, Nodemailer):
-// 1. Configure SMTP or API credentials in environment variables.
-// 2. Wire sendPasswordResetEmail({ to, name, resetToken }) to dispatch email.
-// ============================================================================
-const emailService = {
-  async sendPasswordResetEmail({ to, name, resetToken }) {
-    console.log(`[Email Service] Password reset requested for: ${to}`);
-  },
-};
 
 // ============================================================================
 // OTP AUTHENTICATION HOOKS (Architecture for Real SMS Provider Integration)

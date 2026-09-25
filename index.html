@@ -3346,7 +3346,7 @@
           <button id="resetRoleDoctorBtn" onclick="setResetRole('doctor')">Doctor</button>
         </div>
         <h2>Reset password</h2>
-        <p class="desc">Enter your account email to receive password reset instructions.</p>
+        <p class="desc">Enter your account email to receive a password reset link.</p>
 
         <div class="field">
           <label>Email address</label>
@@ -3357,23 +3357,22 @@
         <div id="resetRequestMsg" class="inline-msg"></div>
 
         <div class="auth-switch" style="margin-top:16px;">
-          <span>Already have a reset token?</span>
-          <button type="button" onclick="showResetStage('confirm')">Enter token</button>
-        </div>
-        <div class="auth-switch" style="margin-top:8px;">
           <button type="button" onclick="closeResetModal(); openAuth(resetRole, 'login');">← Back to Log in</button>
         </div>
       </div>
 
       <!-- Stage 2: Confirm Token & Set New Password -->
       <div id="resetStageConfirm" style="display:none;">
-        <h2>Set new password</h2>
-        <p class="desc">Enter the reset token along with your new password.</p>
-
-        <div class="field">
-          <label>Reset token</label>
-          <input id="fResetToken" placeholder="Paste your 64-character token" />
+        <div class="role-toggle" style="margin-bottom:14px;">
+          <button id="confirmRolePatientBtn" class="active" onclick="setResetRole('patient')">Patient</button>
+          <button id="confirmRoleDoctorBtn" onclick="setResetRole('doctor')">Doctor</button>
         </div>
+        <h2>Set new password</h2>
+        <p class="desc">Enter your new password below.</p>
+
+        <!-- Hidden token input — never exposed to user -->
+        <input id="fResetToken" type="hidden" />
+
         <div class="field">
           <label>New password (min 6 characters)</label>
           <input id="fResetNewPass" type="password" placeholder="••••••••" />
@@ -3387,7 +3386,7 @@
         <div id="resetConfirmMsg" class="inline-msg"></div>
 
         <div class="auth-switch" style="margin-top:16px;">
-          <button type="button" onclick="showResetStage('request')">← Request a different token</button>
+          <button type="button" onclick="showResetStage('request')">← Request a new reset link</button>
         </div>
       </div>
 
@@ -4100,6 +4099,23 @@
       document.getElementById('resetModal').classList.add('show');
     }
 
+    function openResetWithToken(token, role) {
+      closeAuth();
+      if (role && (role === 'doctor' || role === 'patient')) {
+        setResetRole(role);
+      }
+      document.getElementById('fResetToken').value = (token || '').trim();
+      document.getElementById('fResetNewPass').value = '';
+      document.getElementById('fResetConfirmPass').value = '';
+      showResetStage('confirm');
+      clearMsg('resetConfirmMsg');
+      document.getElementById('resetModal').classList.add('show');
+      setTimeout(() => {
+        const passEl = document.getElementById('fResetNewPass');
+        if (passEl) passEl.focus();
+      }, 100);
+    }
+
     function closeResetModal() {
       document.getElementById('resetModal').classList.remove('show');
     }
@@ -4110,8 +4126,14 @@
 
     function setResetRole(role) {
       resetRole = role;
-      document.getElementById('resetRolePatientBtn').classList.toggle('active', role === 'patient');
-      document.getElementById('resetRoleDoctorBtn').classList.toggle('active', role === 'doctor');
+      const rPat = document.getElementById('resetRolePatientBtn');
+      const rDoc = document.getElementById('resetRoleDoctorBtn');
+      if (rPat) rPat.classList.toggle('active', role === 'patient');
+      if (rDoc) rDoc.classList.toggle('active', role === 'doctor');
+      const cPat = document.getElementById('confirmRolePatientBtn');
+      const cDoc = document.getElementById('confirmRoleDoctorBtn');
+      if (cPat) cPat.classList.toggle('active', role === 'patient');
+      if (cDoc) cDoc.classList.toggle('active', role === 'doctor');
     }
 
     function showResetStage(stage) {
@@ -4135,16 +4157,8 @@
       btn.disabled = true;
       try {
         const res = await api(`/api/auth/${resetRole}/forgot-password`, 'POST', { email });
-        showMsg(msg, res.message || 'If an account exists with this email, password reset instructions have been generated.', true);
-
-        // In local development, if devResetToken is provided, assist testing
-        if (res.devResetToken) {
-          document.getElementById('fResetToken').value = res.devResetToken;
-          setTimeout(() => {
-            showResetStage('confirm');
-            showMsg(document.getElementById('resetConfirmMsg'), 'Token generated (Dev Mode). Please enter your new password.', true);
-          }, 1200);
-        }
+        showMsg(msg, res.message || 'Check your email for a password reset link.', true);
+        document.getElementById('fResetEmail').value = '';
       } catch (e) {
         showMsg(msg, e.message, false);
       } finally {
@@ -4158,7 +4172,10 @@
       const newPassword = document.getElementById('fResetNewPass').value;
       const confirmPassword = document.getElementById('fResetConfirmPass').value;
 
-      if (!token) { showMsg(msg, 'Please enter the reset token.', false); return; }
+      if (!token) {
+        showMsg(msg, 'This password reset link is invalid or has expired. Please request a new one.', false);
+        return;
+      }
       if (!newPassword || newPassword.length < 6) {
         showMsg(msg, 'Password must be at least 6 characters.', false);
         return;
@@ -4174,9 +4191,9 @@
         const res = await api(`/api/auth/${resetRole}/reset-password`, 'POST', { token, newPassword });
         closeResetModal();
         openAuth(resetRole, 'login');
-        showMsg(document.getElementById('authMsg'), res.message || 'Password has been reset successfully. Please log in with your new password.', true);
+        showMsg(document.getElementById('authMsg'), res.message || 'Password updated successfully. Please log in.', true);
       } catch (e) {
-        showMsg(msg, e.message, false);
+        showMsg(msg, e.message || 'This password reset link is invalid or has expired. Please request a new one.', false);
       } finally {
         btn.disabled = false;
       }
@@ -4705,6 +4722,24 @@
        BOOT
        ========================================================= */
     (async function boot() {
+      // 1. Detect password reset token in URL parameters (e.g. ?resetToken=...&role=...)
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const resetToken = urlParams.get('resetToken') || urlParams.get('token');
+        const role = urlParams.get('role');
+        if (resetToken) {
+          // Immediately scrub the reset token from address bar to prevent leakage in history/referrers
+          if (window.history && window.history.replaceState) {
+            const cleanUrl = window.location.pathname + (window.location.hash || '');
+            window.history.replaceState({}, document.title, cleanUrl);
+          }
+          openResetWithToken(resetToken, role);
+        }
+      } catch (e) {
+        console.error('Error parsing reset token from URL:', e);
+      }
+
+      // 2. Restore existing active session if available
       const savedToken = localStorage.getItem('dexa_consult_token');
       const savedRole = localStorage.getItem('dexa_consult_role');
       if (savedToken && savedRole) {

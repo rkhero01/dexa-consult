@@ -1,11 +1,12 @@
 // test_account_system.js
 // Automated verification for Dexa Consult Account System
-// Includes Patient & Doctor Auth, Profile Edit, Logout, and Forgot/Reset Password flows
+// Includes Patient & Doctor Auth, Profile Edit, Logout, and Production Password Reset flows
 
 const http = require('http');
 const assert = require('assert');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 // Backup patients and doctors JSON before test
 const dataDir = path.join(__dirname, 'data');
@@ -19,7 +20,10 @@ function restoreData() {
 
 // Start server on port 4001 to avoid conflicts
 process.env.PORT = '4001';
+process.env.FRONTEND_URL = 'https://dexa-consult.onrender.com';
 const server = require('./server'); // starts server on PORT 4001
+const emailService = require('./emailService');
+const db = require('./db');
 
 function request(method, path, body = null, token = null) {
   return new Promise((resolve, reject) => {
@@ -43,6 +47,7 @@ function request(method, path, body = null, token = null) {
               status: res.statusCode,
               headers: res.headers,
               body: raw ? JSON.parse(raw) : null,
+              raw,
             });
           } catch (e) {
             resolve({ status: res.statusCode, headers: res.headers, raw });
@@ -57,17 +62,28 @@ function request(method, path, body = null, token = null) {
 }
 
 async function runTests() {
-  console.log('--- Starting Dexa Consult Account System & Password Reset Tests ---\n');
+  console.log('--- Starting Dexa Consult Account System & Production Password Reset Tests ---\n');
 
   try {
     // Wait for server to listen
     await new Promise((r) => setTimeout(r, 500));
 
-    // Test 1: Health check
-    console.log('1. Health check GET /');
-    const health = await request('GET', '/');
+    // Test 1: Health check & Static File Serving
+    console.log('1. Health check & Static File Serving');
+    const health = await request('GET', '/api/health');
     assert.strictEqual(health.status, 200, 'Health check should return 200');
     console.log('   ✓ Health check passed');
+
+    const platformRes = await request('GET', '/platform.html');
+    assert.strictEqual(platformRes.status, 200, 'GET /platform.html should serve static HTML');
+    assert(platformRes.raw.includes('Dexa Consult'), 'platform.html contains Dexa Consult branding');
+    assert(platformRes.raw.includes('fResetToken'), 'platform.html contains hidden reset token input');
+    console.log('   ✓ Static serving of platform.html verified');
+
+    const indexRes = await request('GET', '/index.html');
+    assert.strictEqual(indexRes.status, 200, 'GET /index.html should serve static HTML');
+    assert(indexRes.raw.includes('Dexa Consult'), 'index.html contains Dexa Consult branding');
+    console.log('   ✓ Static serving of index.html verified');
 
     // Test 2: Patient Signup
     console.log('\n2. Patient Signup POST /api/auth/patient/signup');
@@ -153,13 +169,16 @@ async function runTests() {
 
     // Test 7: Patient Forgot Password POST /api/auth/patient/forgot-password
     console.log('\n7. Patient Forgot Password POST /api/auth/patient/forgot-password');
-    // 7a: Non-existent email should return generic 200 (does NOT reveal if email exists)
+    emailService.clearLastSentEmail();
+
+    // 7a: Non-existent email should return identical generic 200
     const nonExistentRes = await request('POST', '/api/auth/patient/forgot-password', {
       email: 'nonexistent_account@example.com',
     });
     assert.strictEqual(nonExistentRes.status, 200);
     assert(nonExistentRes.body.message.includes('password reset instructions'));
-    assert.strictEqual(nonExistentRes.body.devResetToken, undefined, 'No token returned for non-existent user');
+    assert.strictEqual(nonExistentRes.body.devResetToken, undefined, 'Raw reset token must NEVER be returned in response');
+    assert.strictEqual(emailService.getLastSentEmail(), null, 'No email sent for non-existent account');
     console.log('   ✓ Generic 200 returned for non-existent email (security: no email enumeration)');
 
     // 7b: Existing email request
@@ -167,18 +186,37 @@ async function runTests() {
       email: updatedEmail,
     });
     assert.strictEqual(forgotRes.status, 200);
-    assert(forgotRes.body.message.includes('password reset instructions'));
-    const rawResetToken = forgotRes.body.devResetToken;
-    assert(rawResetToken, 'Dev reset token provided in development mode for test');
-    assert.strictEqual(rawResetToken.length, 64, 'Token is 32 cryptographically secure bytes (64 hex characters)');
+    assert.strictEqual(forgotRes.body.message, nonExistentRes.body.message, 'Generic message identical for existing and non-existing accounts');
+    assert.strictEqual(forgotRes.body.devResetToken, undefined, 'Raw token NEVER returned in API response');
 
-    // Verify DB stores only the SHA-256 hash, NOT the raw token
+    // Verify transactional email was prepared and sent via emailService
+    const sentEmail = emailService.getLastSentEmail();
+    assert(sentEmail, 'Email service was called to dispatch email');
+    assert.strictEqual(sentEmail.to, updatedEmail.toLowerCase());
+    assert(sentEmail.resetToken, 'Email contains raw reset token');
+    assert.strictEqual(sentEmail.resetToken.length, 64, 'Token is 32 cryptographically secure bytes (64 hex chars)');
+    assert(sentEmail.resetLink.includes('https://dexa-consult.onrender.com/platform.html?resetToken='), 'Reset link uses production URL');
+    assert(sentEmail.resetLink.includes('&role=patient'), 'Reset link includes role=patient');
+    console.log('   ✓ Clickable password reset email dispatched with secure production link');
+
+    const rawResetToken = sentEmail.resetToken;
+
+    // Verify DB stores ONLY the SHA-256 hash, NOT the raw token
     const dbPatients = JSON.parse(fs.readFileSync(path.join(dataDir, 'patients.json'), 'utf8'));
     const patientInDb = dbPatients.find((p) => p.email === updatedEmail.toLowerCase());
     assert(patientInDb.resetPasswordToken, 'Hashed token stored in database');
     assert.notStrictEqual(patientInDb.resetPasswordToken, rawResetToken, 'Database MUST NOT store plaintext token');
-    assert(new Date(patientInDb.resetPasswordExpires) > new Date(), 'Expiry set in the future');
-    console.log('   ✓ Secure random token generated, hashed with SHA-256, and stored with expiry');
+    
+    // Verify SHA-256 hash matches
+    const expectedHash = crypto.createHash('sha256').update(rawResetToken).digest('hex');
+    assert.strictEqual(patientInDb.resetPasswordToken, expectedHash, 'Database stores exact SHA-256 hash');
+    
+    // Verify expiry is set 15 minutes ahead
+    const expiryDate = new Date(patientInDb.resetPasswordExpires);
+    const now = Date.now();
+    const diffMinutes = (expiryDate.getTime() - now) / (60 * 1000);
+    assert(diffMinutes > 14 && diffMinutes <= 15.5, `Token expiry must be ~15 minutes (got ${diffMinutes.toFixed(1)} mins)`);
+    console.log('   ✓ SHA-256 hash stored in DB with 15-minute expiry, raw token never stored in DB');
 
     // Test 8: Patient Reset Password POST /api/auth/patient/reset-password
     console.log('\n8. Patient Reset Password POST /api/auth/patient/reset-password');
@@ -190,33 +228,55 @@ async function runTests() {
     assert.strictEqual(shortPassRes.status, 400);
     console.log('   ✓ Short password correctly rejected');
 
-    // 8b: Invalid token
+    // 8b: Invalid token rejected
     const invalidTokenRes = await request('POST', '/api/auth/patient/reset-password', {
-      token: 'fake_invalid_token_123',
+      token: 'invalid_token_xyz_1234567890abcdef',
       newPassword: 'NewSecurePassword456!',
     });
     assert.strictEqual(invalidTokenRes.status, 400);
-    console.log('   ✓ Invalid token correctly rejected');
+    assert(invalidTokenRes.body.error.includes('invalid or has expired'));
+    console.log('   ✓ Invalid token cleanly rejected with friendly message');
 
-    // 8c: Successful password reset
+    // 8c: Expired token rejected
+    console.log('\n   Testing expired token rejection...');
+    // Artificially expire the token in database
+    const patientRecord = db.patients.where((p) => p.email === updatedEmail.toLowerCase())[0];
+    db.patients.update(patientRecord.id, {
+      resetPasswordExpires: new Date(Date.now() - 60 * 1000).toISOString(), // 1 minute in past
+    });
+    const expiredTokenRes = await request('POST', '/api/auth/patient/reset-password', {
+      token: rawResetToken,
+      newPassword: 'NewSecurePassword456!',
+    });
+    assert.strictEqual(expiredTokenRes.status, 400);
+    assert(expiredTokenRes.body.error.includes('invalid or has expired'));
+    console.log('   ✓ Expired token rejected cleanly');
+
+    // Re-issue a fresh token for successful reset test
+    await request('POST', '/api/auth/patient/forgot-password', { email: updatedEmail });
+    const freshSentEmail = emailService.getLastSentEmail();
+    const freshToken = freshSentEmail.resetToken;
+
+    // 8d: Successful password reset
     const newPassword = 'BrandNewPassword999!';
     const resetRes = await request('POST', '/api/auth/patient/reset-password', {
-      token: rawResetToken,
+      token: freshToken,
       newPassword,
     });
     assert.strictEqual(resetRes.status, 200);
     assert(resetRes.body.message.includes('successfully'));
     console.log('   ✓ Password reset succeeded');
 
-    // 8d: Verify single-use token (using again should fail)
+    // 8e: Verify single-use token (using again should fail)
     const reuseRes = await request('POST', '/api/auth/patient/reset-password', {
-      token: rawResetToken,
+      token: freshToken,
       newPassword: 'AnotherPassword111!',
     });
     assert.strictEqual(reuseRes.status, 400, 'Re-using reset token must fail');
+    assert(reuseRes.body.error.includes('invalid or has expired'));
     console.log('   ✓ Reset token is single-use and invalidated immediately');
 
-    // 8e: Verify old password fails
+    // 8f: Verify old password fails
     const oldLogin = await request('POST', '/api/auth/patient/login', {
       email: updatedEmail,
       password: 'SecurePassword123!',
@@ -224,7 +284,7 @@ async function runTests() {
     assert.strictEqual(oldLogin.status, 401, 'Old password must no longer work');
     console.log('   ✓ Old password rejected');
 
-    // 8f: Verify new password logs in successfully
+    // 8g: Verify new password logs in successfully
     const newLogin = await request('POST', '/api/auth/patient/login', {
       email: updatedEmail,
       password: newPassword,
@@ -233,7 +293,7 @@ async function runTests() {
     assert(newLogin.body.token, 'Received fresh token');
     console.log('   ✓ New password logs in successfully with fresh token');
 
-    // 8g: Verify old session was invalidated
+    // 8h: Verify old session was invalidated
     const oldSessionCheck = await request('GET', '/api/me/patient', null, patientToken);
     assert.strictEqual(oldSessionCheck.status, 401, 'Old session token must be invalidated after password reset');
     console.log('   ✓ Old session authToken invalidated across active sessions');
@@ -250,13 +310,20 @@ async function runTests() {
       rates: { chat: 25, call: 35, video: 50 },
     });
 
+    emailService.clearLastSentEmail();
+
     // Request doctor reset
     const docForgot = await request('POST', '/api/auth/doctor/forgot-password', {
       email: testDocEmail,
     });
     assert.strictEqual(docForgot.status, 200);
-    const docResetToken = docForgot.body.devResetToken;
-    assert(docResetToken, 'Received doctor dev reset token');
+    assert.strictEqual(docForgot.body.devResetToken, undefined, 'No raw token leaked in doctor response');
+
+    const docEmail = emailService.getLastSentEmail();
+    assert(docEmail, 'Doctor reset email prepared');
+    assert.strictEqual(docEmail.to, testDocEmail.toLowerCase());
+    assert(docEmail.resetLink.includes('&role=doctor'), 'Doctor link includes role=doctor');
+    const docResetToken = docEmail.resetToken;
 
     // Reset doctor password
     const newDocPassword = 'NewDoctorSecret2026!';
@@ -265,6 +332,15 @@ async function runTests() {
       newPassword: newDocPassword,
     });
     assert.strictEqual(docReset.status, 200);
+    console.log('   ✓ Doctor password reset succeeded');
+
+    // Doctor cannot reuse token
+    const docReuse = await request('POST', '/api/auth/doctor/reset-password', {
+      token: docResetToken,
+      newPassword: 'AnotherPassword999!',
+    });
+    assert.strictEqual(docReuse.status, 400);
+    console.log('   ✓ Doctor token cannot be reused');
 
     // Doctor logs in with new password
     const docLogin = await request('POST', '/api/auth/doctor/login', {
@@ -273,27 +349,11 @@ async function runTests() {
     });
     assert.strictEqual(docLogin.status, 200);
     assert.strictEqual(docLogin.body.doctor.name, 'Dr. Sarah Connor');
-    console.log('   ✓ Doctor forgot-password and reset-password work seamlessly');
+    console.log('   ✓ Doctor logs in with new password');
 
-    // Test 10: Production mode security check
-    console.log('\n10. Production Mode Security Check');
-    const originalEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'production';
-    const prodForgotRes = await request('POST', '/api/auth/patient/forgot-password', {
-      email: updatedEmail,
-    });
-    assert.strictEqual(prodForgotRes.status, 200);
-    assert.strictEqual(
-      prodForgotRes.body.devResetToken,
-      undefined,
-      'devResetToken must NEVER be returned in production mode'
-    );
-    process.env.NODE_ENV = originalEnv;
-    console.log('   ✓ In production mode, reset token is never exposed in API responses');
-
-    console.log('\n==========================================');
+    console.log('\n======================================================');
     console.log('ALL TESTS PASSED SUCCESSFULLY! ✓✓✓');
-    console.log('==========================================');
+    console.log('======================================================');
   } catch (err) {
     console.error('\n❌ Test failed:', err);
     process.exitCode = 1;

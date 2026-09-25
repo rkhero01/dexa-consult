@@ -6,6 +6,34 @@
 
 const http = require('http');
 const { URL } = require('url');
+const fs = require('fs');
+const path = require('path');
+
+// Zero-dependency .env loader
+function loadEnvFile(envPath) {
+  try {
+    if (fs.existsSync(envPath)) {
+      const content = fs.readFileSync(envPath, 'utf8');
+      for (const line of content.split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx !== -1) {
+          const key = trimmed.slice(0, eqIdx).trim();
+          let val = trimmed.slice(eqIdx + 1).trim();
+          if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+            val = val.slice(1, -1);
+          }
+          if (process.env[key] === undefined) {
+            process.env[key] = val;
+          }
+        }
+      }
+    }
+  } catch (e) {}
+}
+loadEnvFile(path.resolve(__dirname, '../.env'));
+loadEnvFile(path.resolve(__dirname, '.env'));
 
 const doctorsCtrl = require('./routes/doctors');
 const walletCtrl = require('./routes/wallet');
@@ -15,6 +43,40 @@ const meDoctorCtrl = require('./routes/meDoctor');
 const mePatientCtrl = require('./routes/mePatient');
 
 const PORT = process.env.PORT || 4000;
+const ROOT_DIR = path.resolve(__dirname, '..');
+
+const MIME_TYPES = {
+  '.html': 'text/html; charset=UTF-8',
+  '.css': 'text/css; charset=UTF-8',
+  '.js': 'application/javascript; charset=UTF-8',
+  '.json': 'application/json; charset=UTF-8',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.svg': 'image/svg+xml',
+  '.webp': 'image/webp',
+  '.ico': 'image/x-icon',
+  '.txt': 'text/plain; charset=UTF-8',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
+};
+
+function serveStaticFile(res, filePath) {
+  try {
+    if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) return false;
+    const ext = path.extname(filePath).toLowerCase();
+    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    const content = fs.readFileSync(filePath);
+    res.writeHead(200, {
+      'Content-Type': contentType,
+      'Access-Control-Allow-Origin': '*',
+    });
+    res.end(content);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
 
 function send(res, status, body) {
   res.writeHead(status, {
@@ -188,9 +250,30 @@ const server = http.createServer(async (req, res) => {
       return reply(res, sessionsCtrl.get(parts[2]));
     }
 
-    // health check
-    if (parts.length === 0) {
+    // Health check endpoint
+    if (parts[0] === 'api' && parts[1] === 'health') {
       return send(res, 200, { status: 'ClinicOS consult module running', time: new Date().toISOString() });
+    }
+
+    // Static files & Root handler
+    if (req.method === 'GET' && parts[0] !== 'api') {
+      if (parts.length === 0) {
+        // If visiting root in a browser, serve platform.html; otherwise return health check
+        const acceptsHtml = req.headers.accept && req.headers.accept.includes('text/html');
+        if (acceptsHtml) {
+          const platformPath = path.join(ROOT_DIR, 'platform.html');
+          if (serveStaticFile(res, platformPath)) return;
+        }
+        return send(res, 200, { status: 'ClinicOS consult module running', time: new Date().toISOString() });
+      }
+
+      // Serve requested static file (e.g. /platform.html, /index.html, /Image/...)
+      const safePath = path.normalize(decodeURIComponent(url.pathname)).replace(/^(\.\.[\/\\])+/, '');
+      const filePath = path.join(ROOT_DIR, safePath);
+      // Prevent directory traversal
+      if (filePath.startsWith(ROOT_DIR) && serveStaticFile(res, filePath)) {
+        return;
+      }
     }
 
     return send(res, 404, { error: 'Route not found' });
