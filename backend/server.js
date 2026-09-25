@@ -203,6 +203,9 @@ const server = http.createServer(async (req, res) => {
     if (parts[0] === 'api' && parts[1] === 'auth' && parts[2] === 'patient' && parts[3] === 'reset-password' && req.method === 'POST') {
       return reply(res, authCtrl.patientResetPassword(body));
     }
+    if (parts[0] === 'api' && parts[1] === 'auth' && (parts[2] === 'logout' || parts[3] === 'logout') && req.method === 'POST') {
+      return reply(res, authCtrl.logout(req));
+    }
 
     // --- Doctor's own dashboard (requires Authorization: Bearer <token>) ---
     if (parts[0] === 'api' && parts[1] === 'me' && parts[2] === 'doctor' && parts.length === 3) {

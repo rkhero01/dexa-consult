@@ -14,9 +14,16 @@ function hashPassword(password) {
 }
 
 function verifyPassword(password, salt, hash) {
-  const check = crypto.scryptSync(password, salt, 64).toString('hex');
-  // timing-safe compare
-  return crypto.timingSafeEqual(Buffer.from(check), Buffer.from(hash));
+  if (!password || !salt || !hash) return false;
+  try {
+    const check = crypto.scryptSync(password, salt, 64).toString('hex');
+    const bCheck = Buffer.from(check);
+    const bHash = Buffer.from(hash);
+    if (bCheck.length !== bHash.length) return false;
+    return crypto.timingSafeEqual(bCheck, bHash);
+  } catch (e) {
+    return false;
+  }
 }
 
 function genToken() {
@@ -59,7 +66,14 @@ function doctorLogin(body) {
     return { status: 400, body: { error: 'Email and password are required' } };
   }
   const doctor = db.doctors.where((d) => d.email && d.email.toLowerCase() === email)[0];
-  if (!doctor || !verifyPassword(password, doctor.passwordSalt, doctor.passwordHash)) {
+  if (!doctor) {
+    const asPatient = db.patients.where((p) => p.email && p.email.toLowerCase() === email)[0];
+    if (asPatient && verifyPassword(password, asPatient.passwordSalt, asPatient.passwordHash)) {
+      return { status: 400, body: { error: "This email is registered as a Patient. Please select 'I\\'m a Patient' above to log in." } };
+    }
+    return { status: 401, body: { error: 'Invalid email or password' } };
+  }
+  if (!verifyPassword(password, doctor.passwordSalt, doctor.passwordHash)) {
     return { status: 401, body: { error: 'Invalid email or password' } };
   }
   const token = genToken();
@@ -97,7 +111,14 @@ function patientLogin(body) {
     return { status: 400, body: { error: 'Email and password are required' } };
   }
   const patient = db.patients.where((p) => p.email && p.email.toLowerCase() === email)[0];
-  if (!patient || !verifyPassword(password, patient.passwordSalt, patient.passwordHash)) {
+  if (!patient) {
+    const asDoctor = db.doctors.where((d) => d.email && d.email.toLowerCase() === email)[0];
+    if (asDoctor && verifyPassword(password, asDoctor.passwordSalt, asDoctor.passwordHash)) {
+      return { status: 400, body: { error: "This email is registered as a Doctor. Please select 'I\\'m a Doctor' above to log in." } };
+    }
+    return { status: 401, body: { error: 'Invalid email or password' } };
+  }
+  if (!verifyPassword(password, patient.passwordSalt, patient.passwordHash)) {
     return { status: 401, body: { error: 'Invalid email or password' } };
   }
   const token = genToken();
@@ -244,6 +265,21 @@ const otpService = {
   },
 };
 
+function logout(req) {
+  const token = getBearerToken(req);
+  if (token) {
+    const patient = db.patients.where((p) => p.authToken === token)[0];
+    if (patient) {
+      db.patients.update(patient.id, { authToken: null });
+    }
+    const doctor = db.doctors.where((d) => d.authToken === token)[0];
+    if (doctor) {
+      db.doctors.update(doctor.id, { authToken: null });
+    }
+  }
+  return { status: 200, body: { message: 'Logged out successfully' } };
+}
+
 module.exports = {
   doctorSignup,
   doctorLogin,
@@ -253,6 +289,7 @@ module.exports = {
   patientLogin,
   patientForgotPassword,
   patientResetPassword,
+  logout,
   authenticateDoctor,
   authenticatePatient,
   safeDoctor,
@@ -260,3 +297,4 @@ module.exports = {
   otpService,
   emailService,
 };
+

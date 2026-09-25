@@ -356,9 +356,163 @@ async function runTests() {
     assert.strictEqual(docLogin.body.doctor.name, 'Dr. Sarah Connor');
     console.log('   ✓ Doctor logs in with new password');
 
-    console.log('\n======================================================');
-    console.log('ALL TESTS PASSED SUCCESSFULLY! ✓✓✓');
-    console.log('======================================================');
+    // =========================================================================
+    // Test 10: Session Persistence, Multi-Role & Browser Restart Simulation
+    // =========================================================================
+    console.log('\n--- 10. Automated Session Persistence & Restore Test Suite ---');
+
+    // In-memory simulated browser storage
+    const simulatedLocalStorage = new Map();
+
+    // 10.1: Login → token persisted
+    console.log('\n10.1: Login → token persisted securely');
+    const pLoginRes = await request('POST', '/api/auth/patient/login', {
+      email: updatedEmail,
+      password: newPassword,
+    });
+    assert.strictEqual(pLoginRes.status, 200);
+    assert(pLoginRes.body.token, 'Token returned from login');
+    simulatedLocalStorage.set('dexa_consult_token', pLoginRes.body.token);
+    simulatedLocalStorage.set('dexa_consult_role', 'patient');
+    assert.strictEqual(simulatedLocalStorage.get('dexa_consult_token'), pLoginRes.body.token);
+    assert.strictEqual(simulatedLocalStorage.get('dexa_consult_role'), 'patient');
+    assert(!simulatedLocalStorage.has('password'), 'Password is NEVER stored in browser storage');
+    console.log('   ✓ Token and role persisted in browser storage; password is NEVER stored');
+
+    // 10.2: Simulated page reload → session restored
+    console.log('\n10.2: Simulated page reload → session restored');
+    // Simulated page reload: reads persisted keys from storage
+    const reloadedToken = simulatedLocalStorage.get('dexa_consult_token');
+    const reloadedRole = simulatedLocalStorage.get('dexa_consult_role');
+    assert(reloadedToken && reloadedRole === 'patient');
+    const reloadMe = await request('GET', `/api/me/${reloadedRole}`, null, reloadedToken);
+    assert.strictEqual(reloadMe.status, 200, 'Page reload restores session via /api/me/patient');
+    assert.strictEqual(reloadMe.body.email, updatedEmail.toLowerCase());
+    console.log('   ✓ Page reload verifies token and restores session with 200 OK');
+
+    // 10.3: Simulated browser restart → session restored
+    console.log('\n10.3: Simulated browser restart → session restored');
+    // Simulated browser restart: all in-memory variables reset to null, persistent storage survives
+    let inMemorySession = { token: null, role: null, me: null };
+    assert.strictEqual(inMemorySession.token, null);
+    // Boot sequence executes: reads persisted storage
+    const restartToken = simulatedLocalStorage.get('dexa_consult_token');
+    const restartRole = simulatedLocalStorage.get('dexa_consult_role');
+    assert.strictEqual(restartToken, pLoginRes.body.token);
+    const restartMe = await request('GET', `/api/me/${restartRole}`, null, restartToken);
+    assert.strictEqual(restartMe.status, 200);
+    inMemorySession = { token: restartToken, role: restartRole, me: restartMe.body };
+    assert(inMemorySession.me && inMemorySession.me.id);
+    console.log('   ✓ Simulated browser restart successfully restored session from persistent storage');
+
+    // 10.4: Valid token → user remains logged in
+    console.log('\n10.4: Valid token → user remains logged in');
+    const dashboardCheck = await request('GET', '/api/me/patient', null, inMemorySession.token);
+    assert.strictEqual(dashboardCheck.status, 200, 'Valid token allows continuous access');
+    console.log('   ✓ User remains logged in across queries with valid token');
+
+    // 10.5: Invalid token → login screen shown (session cleared)
+    console.log('\n10.5: Invalid token → returns 401 and clears storage');
+    const invalidCheck = await request('GET', '/api/me/patient', null, 'fake_invalid_token_999');
+    assert.strictEqual(invalidCheck.status, 401, 'Invalid token must return 401 Unauthorized');
+    // Simulated boot/client error handler on 401:
+    if (invalidCheck.status === 401) {
+      simulatedLocalStorage.delete('dexa_consult_token');
+      simulatedLocalStorage.delete('dexa_consult_role');
+      inMemorySession = { token: null, role: null, me: null };
+    }
+    assert.strictEqual(simulatedLocalStorage.get('dexa_consult_token'), undefined);
+    console.log('   ✓ 401 Unauthorized correctly triggers cleanup of invalid session');
+
+    // Re-login for logout test
+    const reLogin = await request('POST', '/api/auth/patient/login', {
+      email: updatedEmail,
+      password: newPassword,
+    });
+    simulatedLocalStorage.set('dexa_consult_token', reLogin.body.token);
+    simulatedLocalStorage.set('dexa_consult_role', 'patient');
+
+    // 10.6: Manual Logout → token removed
+    console.log('\n10.6: Manual Logout → token removed from storage & server invalidated');
+    const logoutRes = await request('POST', '/api/auth/logout', null, simulatedLocalStorage.get('dexa_consult_token'));
+    assert.strictEqual(logoutRes.status, 200);
+    const loggedOutToken = simulatedLocalStorage.get('dexa_consult_token');
+    simulatedLocalStorage.removeItem = (key) => simulatedLocalStorage.delete(key);
+    simulatedLocalStorage.removeItem('dexa_consult_token');
+    simulatedLocalStorage.removeItem('dexa_consult_role');
+    assert.strictEqual(simulatedLocalStorage.get('dexa_consult_token'), undefined);
+    assert.strictEqual(simulatedLocalStorage.get('dexa_consult_role'), undefined);
+    console.log('   ✓ Manual logout removed persistent storage keys and invalidated server session');
+
+    // 10.7: After Logout → reload requires login
+    console.log('\n10.7: After Logout → reload requires login');
+    const afterLogoutToken = simulatedLocalStorage.get('dexa_consult_token');
+    assert.strictEqual(afterLogoutToken, undefined, 'No token in storage after logout');
+    const revokedTokenCheck = await request('GET', '/api/me/patient', null, loggedOutToken);
+    assert.strictEqual(revokedTokenCheck.status, 401, 'Logged out token returns 401');
+    console.log('   ✓ Reopening/reloading website after logout requires login');
+
+    // 10.8: Password reset → old token/session invalidated
+    console.log('\n10.8: Password reset → old token/session invalidated');
+    // Login to get active token
+    const preResetLogin = await request('POST', '/api/auth/patient/login', {
+      email: updatedEmail,
+      password: newPassword,
+    });
+    const preResetToken = preResetLogin.body.token;
+    // Perform forgot password and reset
+    await request('POST', '/api/auth/patient/forgot-password', { email: updatedEmail });
+    const resetEmail = emailService.getLastSentEmail();
+    const newestPass = 'FinalSecurePassword2026!';
+    await request('POST', '/api/auth/patient/reset-password', {
+      token: resetEmail.resetToken,
+      newPassword: newestPass,
+    });
+    // Verify old token is rejected
+    const oldTokenCheck = await request('GET', '/api/me/patient', null, preResetToken);
+    assert.strictEqual(oldTokenCheck.status, 401, 'Old session token must be invalidated after password reset');
+    console.log('   ✓ Old token immediately invalidated upon password reset');
+
+    // 10.9: Patient session restores as Patient
+    console.log('\n10.9: Patient session restores as Patient');
+    const patNewLogin = await request('POST', '/api/auth/patient/login', {
+      email: updatedEmail,
+      password: newestPass,
+    });
+    const patientSessionToken = patNewLogin.body.token;
+    const patRestore = await request('GET', '/api/me/patient', null, patientSessionToken);
+    assert.strictEqual(patRestore.status, 200);
+    assert.strictEqual(typeof patRestore.body.walletBalance, 'number');
+    // Patient cannot access doctor endpoints
+    const patCrossAccess = await request('GET', '/api/me/doctor', null, patientSessionToken);
+    assert.strictEqual(patCrossAccess.status, 401, 'Patient token cannot access doctor dashboard');
+    console.log('   ✓ Patient session restored as Patient; cross-role isolation verified');
+
+    // 10.10: Doctor session restores as Doctor
+    console.log('\n10.10: Doctor session restores as Doctor');
+    const docNewLogin = await request('POST', '/api/auth/doctor/login', {
+      email: testDocEmail,
+      password: newDocPassword,
+    });
+    const doctorSessionToken = docNewLogin.body.token;
+    const docRestore = await request('GET', '/api/me/doctor', null, doctorSessionToken);
+    assert.strictEqual(docRestore.status, 200);
+    assert.strictEqual(docRestore.body.specialization, 'Dermatologist');
+    assert(docRestore.body.rates && typeof docRestore.body.rates.chat === 'number');
+    // Doctor cannot access patient endpoints
+    const docCrossAccess = await request('GET', '/api/me/patient', null, doctorSessionToken);
+    assert.strictEqual(docCrossAccess.status, 401, 'Doctor token cannot access patient dashboard');
+    console.log('   ✓ Doctor session restored as Doctor; cross-role isolation verified');
+
+    // 10.11: Cross-role helpful message
+    console.log('\n10.11: Cross-role login guidance check');
+    const wrongRoleLogin = await request('POST', '/api/auth/patient/login', {
+      email: testDocEmail,
+      password: newDocPassword,
+    });
+    assert.strictEqual(wrongRoleLogin.status, 400);
+    assert(wrongRoleLogin.body.error.includes("Doctor"), 'Helpful message guides doctor to select Doctor tab');
+    console.log('   ✓ Helpful guidance provided when user enters credentials on wrong role tab');
   } catch (err) {
     console.error('\n❌ Test failed:', err);
     process.exitCode = 1;

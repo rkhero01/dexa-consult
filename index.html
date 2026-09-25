@@ -2618,7 +2618,7 @@
       </nav>
 
       <div class="header-actions" id="loggedOutActions">
-        <button class="btn btn-outline btn-sm" onclick="openAuth('patient','login')">Log in</button>
+        <button class="btn btn-outline btn-sm" onclick="openAuth(null,'login')">Log in</button>
         <button class="btn btn-primary btn-sm" onclick="openAuth('patient','signup')">Talk to a Doctor</button>
         <button class="menu-toggle" id="menuToggleBtn" aria-label="Menu">☰</button>
       </div>
@@ -2655,7 +2655,7 @@
       <a href="#how">How it works</a>
       <a href="#faq">FAQs</a>
       <a href="https://dexaclinicindia.com/" target="_blank" rel="noopener">Main Website</a>
-      <button onclick="openAuth('patient','login')">Log in</button>
+      <button onclick="openAuth(null,'login')">Log in</button>
       <button onclick="openAuth('patient','signup')" style="color:var(--orange);">Talk to a Doctor</button>
     </div>
   </header>
@@ -3696,10 +3696,17 @@
       try {
         res = await fetch(API + path, { method: method || 'GET', headers, body: body ? JSON.stringify(body) : undefined });
       } catch (e) {
-        throw new Error('Can\'t reach the consult server. Check your connection and try again.');
+        const netErr = new Error("Can't reach the consult server. Check your connection and try again.");
+        netErr.status = 0;
+        netErr.isNetworkError = true;
+        throw netErr;
       }
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Something went wrong. Please try again.');
+      if (!res.ok) {
+        const apiErr = new Error(data.error || 'Something went wrong. Please try again.');
+        apiErr.status = res.status;
+        throw apiErr;
+      }
       return data;
     }
     function matchesCategory(doctor, catKey) {
@@ -3863,7 +3870,8 @@
        AUTH MODAL
        ========================================================= */
     function openAuth(role, mode) {
-      authRole = role || 'patient';
+      const rememberedRole = localStorage.getItem('dexa_consult_role');
+      authRole = role || (rememberedRole === 'doctor' ? 'doctor' : 'patient');
       authMode = mode || 'login';
       setAuthRole(authRole, true);
       applyAuthMode();
@@ -3943,17 +3951,21 @@
         localStorage.setItem('dexa_consult_role', authRole);
         document.getElementById('fPassword').value = '';
         closeAuth();
-        await enterApp();
+        await enterApp(result[authRole] || null);
       } catch (e) {
         showMsg(msg, e.message, false);
       }
     }
 
     function logout() {
+      const activeToken = session.token;
       closeAccountMenu();
       localStorage.removeItem('dexa_consult_token');
       localStorage.removeItem('dexa_consult_role');
       session = { token: null, role: null, me: null };
+      if (activeToken) {
+        api('/api/auth/logout', 'POST', null, activeToken).catch(() => {});
+      }
       clearInterval(liveTimer);
       if (liveEventSource) {
         liveEventSource.close();
@@ -4189,6 +4201,10 @@
       btn.disabled = true;
       try {
         const res = await api(`/api/auth/${resetRole}/reset-password`, 'POST', { token, newPassword });
+        // Invalidate and clear local persistent session upon password reset
+        localStorage.removeItem('dexa_consult_token');
+        localStorage.removeItem('dexa_consult_role');
+        session = { token: null, role: null, me: null };
         closeResetModal();
         openAuth(resetRole, 'login');
         showMsg(document.getElementById('authMsg'), res.message || 'Password updated successfully. Please log in.', true);
@@ -4207,7 +4223,7 @@
       document.getElementById('screen' + name).classList.add('active');
     }
 
-    async function enterApp() {
+    async function enterApp(userMe) {
       document.getElementById('loggedOutActions').style.display = 'none';
       document.getElementById('loggedInActions').style.display = 'flex';
       document.getElementById('marketingNav').style.display = 'none';
@@ -4218,12 +4234,12 @@
         document.getElementById('walletChip').style.display = 'none';
         document.getElementById('doctorChip').style.display = 'flex';
         showScreen('Doctor');
-        await loadDoctorDashboard();
+        await loadDoctorDashboard(userMe);
       } else {
         document.getElementById('doctorChip').style.display = 'none';
         document.getElementById('walletChip').style.display = 'flex';
         showScreen('Patient');
-        await loadPatientDashboard();
+        await loadPatientDashboard(userMe);
         if (pendingBooking) {
           const { doctorId, type } = pendingBooking;
           pendingBooking = null;
@@ -4242,8 +4258,11 @@
       document.getElementById('pPanel' + tab[0].toUpperCase() + tab.slice(1)).classList.add('active');
     }
 
-    async function loadPatientDashboard() {
-      const me = await api('/api/me/patient', 'GET', null, session.token);
+    async function loadPatientDashboard(userMe) {
+      let me = userMe || session.me;
+      if (!me) {
+        me = await api('/api/me/patient', 'GET', null, session.token);
+      }
       session.me = me;
       document.getElementById('avatarBtn').textContent = initials(me.name);
       document.getElementById('patAvatarDp').textContent = initials(me.name);
@@ -4264,10 +4283,18 @@
         alertBox.style.display = 'none';
       }
 
-      await loadPatientDoctors();
+      try {
+        await loadPatientDoctors();
+      } catch (err) {
+        console.warn('Could not load patient doctors list:', err);
+      }
 
-      const sessions = await api('/api/me/patient/sessions', 'GET', null, session.token);
-      renderHistory('patSessionsList', sessions);
+      try {
+        const sessions = await api('/api/me/patient/sessions', 'GET', null, session.token);
+        renderHistory('patSessionsList', sessions);
+      } catch (err) {
+        console.warn('Could not load patient sessions history:', err);
+      }
     }
 
     async function loadPatientDoctors() {
@@ -4334,8 +4361,11 @@
       document.getElementById('dPanel' + tab[0].toUpperCase() + tab.slice(1)).classList.add('active');
     }
 
-    async function loadDoctorDashboard() {
-      const me = await api('/api/me/doctor', 'GET', null, session.token);
+    async function loadDoctorDashboard(userMe) {
+      let me = userMe || session.me;
+      if (!me) {
+        me = await api('/api/me/doctor', 'GET', null, session.token);
+      }
       session.me = me;
       document.getElementById('avatarBtn').textContent = initials(me.name);
       document.getElementById('docAvatarDp').textContent = initials(me.name);
@@ -4343,17 +4373,24 @@
       document.getElementById('docMeta').textContent = `${me.specialization || 'General'} · ${me.state || '-'}`;
       document.getElementById('menuUserName').textContent = me.name;
       document.getElementById('menuUserRole').textContent = `Doctor (${me.specialization || 'General'})`;
-      document.getElementById('docRateChat').value = me.rates.chat;
-      document.getElementById('docRateCall').value = me.rates.call;
-      document.getElementById('docRateVideo').value = me.rates.video;
+      if (me.rates) {
+        document.getElementById('docRateChat').value = me.rates.chat || 0;
+        document.getElementById('docRateCall').value = me.rates.call || 0;
+        document.getElementById('docRateVideo').value = me.rates.video || 0;
+      }
 
-      const isOnline = me.status !== 'offline';
+      const isOnline = (me.status || 'offline') !== 'offline';
       document.getElementById('docStatusToggle').checked = isOnline;
-      document.getElementById('docStatusLabel').textContent = me.status[0].toUpperCase() + me.status.slice(1);
-      document.getElementById('chipDocStatus').textContent = me.status[0].toUpperCase() + me.status.slice(1);
+      const statusText = me.status ? (me.status[0].toUpperCase() + me.status.slice(1)) : 'Offline';
+      document.getElementById('docStatusLabel').textContent = statusText;
+      document.getElementById('chipDocStatus').textContent = statusText;
       document.getElementById('chipDot').className = 'status-dot ' + (me.status === 'online' ? 'online' : me.status === 'busy' ? 'busy' : '');
 
-      startDoctorEventListener();
+      try {
+        startDoctorEventListener();
+      } catch (err) {
+        console.warn('Doctor SSE error:', err);
+      }
 
       if (me.pendingSession && (!pendingIncomingCall || pendingIncomingCall.sessionId === me.pendingSession.id)) {
         showIncomingCallModal({
@@ -4374,15 +4411,25 @@
         alertBox.style.display = 'none';
       }
 
-      const earnings = await api('/api/me/doctor/earnings', 'GET', null, session.token);
-      const cells = document.querySelectorAll('#earningsStats .stat-box .v');
-      cells[0].textContent = earnings.totalSessions;
-      cells[1].textContent = money(earnings.grossEarnings);
-      cells[2].textContent = money(earnings.platformCommission);
-      cells[3].textContent = money(earnings.netPayout);
+      try {
+        const earnings = await api('/api/me/doctor/earnings', 'GET', null, session.token);
+        const cells = document.querySelectorAll('#earningsStats .stat-box .v');
+        if (cells && cells.length >= 4) {
+          cells[0].textContent = earnings.totalSessions;
+          cells[1].textContent = money(earnings.grossEarnings);
+          cells[2].textContent = money(earnings.platformCommission);
+          cells[3].textContent = money(earnings.netPayout);
+        }
+      } catch (err) {
+        console.warn('Could not load doctor earnings:', err);
+      }
 
-      const sessions = await api('/api/me/doctor/sessions', 'GET', null, session.token);
-      renderHistory('docSessionsList', sessions);
+      try {
+        const sessions = await api('/api/me/doctor/sessions', 'GET', null, session.token);
+        renderHistory('docSessionsList', sessions);
+      } catch (err) {
+        console.warn('Could not load doctor sessions:', err);
+      }
     }
 
     async function toggleDoctorStatus() {
@@ -4742,11 +4789,48 @@
       // 2. Restore existing active session if available
       const savedToken = localStorage.getItem('dexa_consult_token');
       const savedRole = localStorage.getItem('dexa_consult_role');
-      if (savedToken && savedRole) {
+
+      if (!savedToken || !savedRole || (savedRole !== 'patient' && savedRole !== 'doctor')) {
+        // Step 2: If no token or invalid role, ensure clean logged-out state
+        if (savedToken || savedRole) {
+          localStorage.removeItem('dexa_consult_token');
+          localStorage.removeItem('dexa_consult_role');
+        }
+        session = { token: null, role: null, me: null };
+      } else {
+        // Step 1: Token exists with valid role ('patient' or 'doctor')
         session.token = savedToken;
         session.role = savedRole;
-        try { await enterApp(); }
-        catch (e) { logout(); }
+
+        // Step 3: Call the appropriate /api/me endpoint to verify user
+        const endpoint = savedRole === 'doctor' ? '/api/me/doctor' : '/api/me/patient';
+        try {
+          const me = await api(endpoint, 'GET', null, savedToken);
+          // Step 4: If API returns valid user, restore session and dashboard
+          if (me && me.id) {
+            session.me = me;
+            await enterApp(me);
+          } else {
+            // Invalid user payload indicates bad session
+            logout();
+          }
+        } catch (e) {
+          // Step 5: If API returns 401/invalid token: clear saved authentication data and show login
+          if (e && e.status === 401) {
+            console.warn('Session expired or revoked (401 Unauthorized). Resetting local session.');
+            logout();
+          } else {
+            // Network error / server waking up (Render cold start)
+            // Do NOT automatically logout merely because the page was reopened!
+            console.warn('Consult server temporarily unreachable, preserving local session:', e);
+            try {
+              await enterApp();
+              toast('Connecting to consult server… Session restored.', 'ok');
+            } catch (enterErr) {
+              console.error('Error restoring cached UI:', enterErr);
+            }
+          }
+        }
       }
     })();
   </script>
