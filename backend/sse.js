@@ -5,6 +5,7 @@
 // ticks, session-ended events, and chat messages for chat-type sessions.
 
 const rooms = new Map(); // sessionId -> Set of res objects
+const doctorRooms = new Map(); // doctorId -> Set of res objects
 
 function subscribe(sessionId, res) {
   res.writeHead(200, {
@@ -28,8 +29,42 @@ function broadcast(sessionId, payload) {
   if (!subs) return;
   const data = `event: ${payload.event}\ndata: ${JSON.stringify(payload)}\n\n`;
   for (const res of subs) {
-    res.write(data);
+    try {
+      res.write(data);
+    } catch (e) {
+      /* ignore socket write errors */
+    }
   }
 }
 
-module.exports = { subscribe, broadcast };
+function subscribeDoctor(doctorId, res) {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+    'Access-Control-Allow-Origin': '*',
+  });
+  res.write(`event: connected\ndata: {"doctorId":"${doctorId}"}\n\n`);
+
+  if (!doctorRooms.has(doctorId)) doctorRooms.set(doctorId, new Set());
+  doctorRooms.get(doctorId).add(res);
+
+  res.req.on('close', () => {
+    doctorRooms.get(doctorId)?.delete(res);
+  });
+}
+
+function notifyDoctor(doctorId, payload) {
+  const subs = doctorRooms.get(doctorId);
+  if (!subs) return;
+  const data = `event: ${payload.event}\ndata: ${JSON.stringify(payload)}\n\n`;
+  for (const res of subs) {
+    try {
+      res.write(data);
+    } catch (e) {
+      /* ignore socket write errors */
+    }
+  }
+}
+
+module.exports = { subscribe, broadcast, subscribeDoctor, notifyDoctor };

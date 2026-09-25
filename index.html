@@ -411,6 +411,105 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .avatar-btn:hover {
+      transform: scale(1.04);
+      box-shadow: 0 2px 8px rgba(23, 94, 84, .2);
+    }
+
+    /* ---------- account dropdown menu ---------- */
+    .account-menu-container {
+      position: relative;
+    }
+
+    .account-dropdown {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-m);
+      box-shadow: 0 12px 32px rgba(5, 20, 25, 0.14), 0 2px 6px rgba(5, 20, 25, 0.06);
+      min-width: 220px;
+      padding: 6px 0;
+      z-index: 150;
+      display: none;
+      animation: fadeInDropdown 0.15s ease-out;
+    }
+
+    .account-dropdown.show {
+      display: block;
+    }
+
+    @keyframes fadeInDropdown {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .account-dropdown-header {
+      padding: 10px 16px 8px;
+    }
+
+    .account-dropdown-header .name {
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--teal-deep);
+      line-height: 1.2;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .account-dropdown-header .role-tag {
+      font-size: 11.5px;
+      color: var(--ink-soft);
+      margin-top: 3px;
+      text-transform: capitalize;
+    }
+
+    .account-dropdown-divider {
+      height: 1px;
+      background: var(--line);
+      margin: 4px 0;
+    }
+
+    .account-dropdown-item {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 16px;
+      border: none;
+      background: transparent;
+      color: var(--ink);
+      font-size: 13.5px;
+      font-weight: 500;
+      font-family: inherit;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .account-dropdown-item:hover {
+      background: var(--bg-alt);
+      color: var(--teal-deep);
+    }
+
+    .account-dropdown-item.danger {
+      color: var(--red);
+    }
+
+    .account-dropdown-item.danger:hover {
+      background: var(--red-soft);
+      color: var(--red);
+    }
+
+    .account-dropdown-item .icon {
+      font-size: 15px;
+      line-height: 1;
     }
 
     .status-dot {
@@ -2508,7 +2607,7 @@
   <!-- ============================================================= HEADER ============================================================= -->
   <header class="site-header">
     <div class="bar">
-      <a href="#top" class="brand"><img src="Image/Dexa Clinic Logo.png" alt="Dexa Clinic" class="brand-logo-img"></a>
+      <a href="#top" class="brand"><img src="image/dexa clinic logo.png" alt="Dexa Clinic" class="brand-logo-img"></a>
 
       <nav class="nav-links" id="marketingNav">
         <a href="#doctors">Find a Doctor</a>
@@ -2531,7 +2630,23 @@
         <div class="app-chip" id="doctorChip" style="display:none;">
           <span class="status-dot" id="chipDot"></span><span id="chipDocStatus">Offline</span>
         </div>
-        <button class="avatar-btn" id="avatarBtn" title="Account" onclick="toggleAccountMenu()">–</button>
+        <div class="account-menu-container" id="accountMenuContainer">
+          <button class="avatar-btn" id="avatarBtn" title="Account" onclick="toggleAccountMenu(event)">–</button>
+          <div class="account-dropdown" id="accountDropdown">
+            <div class="account-dropdown-header">
+              <div class="name" id="menuUserName">User</div>
+              <div class="role-tag" id="menuUserRole">Patient</div>
+            </div>
+            <div class="account-dropdown-divider"></div>
+            <button class="account-dropdown-item" onclick="openProfileModal(); closeAccountMenu();">
+              <span class="icon">👤</span> Personal Details
+            </button>
+            <div class="account-dropdown-divider"></div>
+            <button class="account-dropdown-item danger" onclick="logout(); closeAccountMenu();">
+              <span class="icon">🚪</span> Log out
+            </button>
+          </div>
+        </div>
       </div>
     </div>
     <div class="mobile-menu" id="mobileMenu">
@@ -2915,10 +3030,13 @@
                 <div class="meta" id="patMeta">-</div>
               </div>
             </div>
-            <div style="text-align:right;">
-              <div class="sub" style="margin:0;">Wallet balance</div>
-              <div style="font-family:var(--font-display);font-size:22px;font-weight:700;color:var(--teal-deep);"
-                id="patBalanceInline">₹0.00</div>
+            <div style="display:flex;align-items:center;gap:14px;">
+              <button class="btn btn-outline btn-xs" onclick="openProfileModal()" style="font-size:12px;padding:6px 12px;border-radius:999px;">Edit Profile</button>
+              <div style="text-align:right;">
+                <div class="sub" style="margin:0;">Wallet balance</div>
+                <div style="font-family:var(--font-display);font-size:22px;font-weight:700;color:var(--teal-deep);"
+                  id="patBalanceInline">₹0.00</div>
+              </div>
             </div>
           </div>
         </div>
@@ -2982,10 +3100,13 @@
               <div class="meta" id="docMeta">-</div>
             </div>
           </div>
-          <div class="switch-row">
-            <span id="docStatusLabel" style="font-size:13.5px;font-weight:600;color:var(--ink-soft);">Offline</span>
-            <label class="switch"><input type="checkbox" id="docStatusToggle" onchange="toggleDoctorStatus()"><span
-                class="slider"></span></label>
+          <div style="display:flex;align-items:center;gap:14px;">
+            <button class="btn btn-outline btn-xs" onclick="openProfileModal()" style="font-size:12px;padding:6px 12px;border-radius:999px;">Edit Profile</button>
+            <div class="switch-row">
+              <span id="docStatusLabel" style="font-size:13.5px;font-weight:600;color:var(--ink-soft);">Offline</span>
+              <label class="switch"><input type="checkbox" id="docStatusToggle" onchange="toggleDoctorStatus()"><span
+                  class="slider"></span></label>
+            </div>
           </div>
         </div>
       </div>
@@ -3128,7 +3249,13 @@
       <div class="field"><label>Email</label><input id="fEmail" type="email" placeholder="you@example.com" /></div>
       <div class="field" id="patientPhoneField" style="display:none;"><label>Phone</label><input id="fPhone"
           placeholder="98765 43210" /></div>
-      <div class="field"><label>Password</label><input id="fPassword" type="password" placeholder="••••••••" /></div>
+      <div class="field">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
+          <label style="margin-bottom:0;">Password</label>
+          <button type="button" id="forgotPassBtn" onclick="openForgotModal()" style="background:none; border:none; color:var(--teal-deep); font-size:12px; font-weight:600; cursor:pointer; padding:0; text-decoration:underline;">Forgot password?</button>
+        </div>
+        <input id="fPassword" type="password" placeholder="••••••••" />
+      </div>
 
       <div id="doctorSignupExtra" style="display:none;">
         <div class="field"><label>State</label><input id="fState" placeholder="Gujarat" /></div>
@@ -3157,6 +3284,139 @@
       <div class="auth-switch">
         <span id="authSwitchText">New to Dexa Consult?</span>
         <button onclick="toggleAuthMode()" id="authSwitchBtn">Create an account</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================= PROFILE MODAL ============================================================= -->
+  <div class="modal-backdrop" id="profileModal">
+    <div class="modal-card">
+      <button class="modal-close" onclick="closeProfileModal()">✕</button>
+      <h2 id="profileModalTitle">Personal Details</h2>
+      <p class="desc" id="profileModalDesc">Update your profile information below.</p>
+
+      <div id="patientProfileFields">
+        <div class="field">
+          <label>Full Name</label>
+          <input id="profPatName" placeholder="e.g. Indraraj Roy" />
+        </div>
+        <div class="field">
+          <label>Email Address</label>
+          <input id="profPatEmail" type="email" placeholder="you@example.com" />
+        </div>
+        <div class="field">
+          <label>Phone Number</label>
+          <input id="profPatPhone" type="tel" placeholder="98765 43210" />
+        </div>
+      </div>
+
+      <div id="doctorProfileFields" style="display:none;">
+        <div class="field">
+          <label>Full Name</label>
+          <input id="profDocName" placeholder="e.g. Dr. Prem Thakor" />
+        </div>
+        <div class="field">
+          <label>Email Address</label>
+          <input id="profDocEmail" type="email" placeholder="you@example.com" />
+        </div>
+        <div class="field">
+          <label>Specialization</label>
+          <input id="profDocSpec" placeholder="e.g. Dermatology" />
+        </div>
+        <div class="field">
+          <label>State / City</label>
+          <input id="profDocState" placeholder="e.g. Ahmedabad" />
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-block" id="profileSaveBtn" onclick="saveProfile()">Save Changes</button>
+      <div id="profileMsg" class="inline-msg"></div>
+    </div>
+  </div>
+
+  <!-- ============================================================= RESET PASSWORD MODAL ============================================================= -->
+  <div class="modal-backdrop" id="resetModal">
+    <div class="modal-card">
+      <button class="modal-close" onclick="closeResetModal()">✕</button>
+
+      <!-- Stage 1: Request Reset -->
+      <div id="resetStageRequest">
+        <div class="role-toggle">
+          <button id="resetRolePatientBtn" class="active" onclick="setResetRole('patient')">Patient</button>
+          <button id="resetRoleDoctorBtn" onclick="setResetRole('doctor')">Doctor</button>
+        </div>
+        <h2>Reset password</h2>
+        <p class="desc">Enter your account email to receive password reset instructions.</p>
+
+        <div class="field">
+          <label>Email address</label>
+          <input id="fResetEmail" type="email" placeholder="you@example.com" />
+        </div>
+
+        <button class="btn btn-primary btn-block" id="resetRequestBtn" onclick="submitForgotPassword()">Request Reset</button>
+        <div id="resetRequestMsg" class="inline-msg"></div>
+
+        <div class="auth-switch" style="margin-top:16px;">
+          <span>Already have a reset token?</span>
+          <button type="button" onclick="showResetStage('confirm')">Enter token</button>
+        </div>
+        <div class="auth-switch" style="margin-top:8px;">
+          <button type="button" onclick="closeResetModal(); openAuth(resetRole, 'login');">← Back to Log in</button>
+        </div>
+      </div>
+
+      <!-- Stage 2: Confirm Token & Set New Password -->
+      <div id="resetStageConfirm" style="display:none;">
+        <h2>Set new password</h2>
+        <p class="desc">Enter the reset token along with your new password.</p>
+
+        <div class="field">
+          <label>Reset token</label>
+          <input id="fResetToken" placeholder="Paste your 64-character token" />
+        </div>
+        <div class="field">
+          <label>New password (min 6 characters)</label>
+          <input id="fResetNewPass" type="password" placeholder="••••••••" />
+        </div>
+        <div class="field">
+          <label>Confirm new password</label>
+          <input id="fResetConfirmPass" type="password" placeholder="••••••••" />
+        </div>
+
+        <button class="btn btn-primary btn-block" id="resetConfirmBtn" onclick="submitResetPassword()">Update Password</button>
+        <div id="resetConfirmMsg" class="inline-msg"></div>
+
+        <div class="auth-switch" style="margin-top:16px;">
+          <button type="button" onclick="showResetStage('request')">← Request a different token</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============================================================= INCOMING CALL MODAL (DOCTOR) ============================================================= -->
+  <div class="modal-backdrop" id="incomingCallModal" style="display:none; z-index:10000;">
+    <div class="modal-card" style="max-width:400px; text-align:center; padding:32px 24px; border-radius:var(--radius-l); position:relative;">
+      <div style="position:relative; width:88px; height:88px; margin:0 auto 18px;">
+        <div id="incomingCallAvatar" style="width:88px; height:88px; border-radius:50%; background:linear-gradient(135deg, var(--teal), var(--teal-deep)); display:flex; align-items:center; justify-content:center; color:#fff; font-size:30px; font-weight:700; position:relative; z-index:2;">
+          PT
+        </div>
+        <div style="position:absolute; inset:-8px; border-radius:50%; border:2px solid var(--teal); opacity:0.8; animation:pulse-ring 1.8s ease-out infinite;"></div>
+        <div style="position:absolute; inset:-18px; border-radius:50%; border:2px solid var(--teal); opacity:0.4; animation:pulse-ring 1.8s ease-out infinite 0.6s;"></div>
+      </div>
+      <div style="display:inline-block; padding:4px 12px; border-radius:999px; background:rgba(30,123,126,0.12); color:var(--teal-deep); font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;" id="incomingCallBadge">
+        Incoming Audio Call
+      </div>
+      <h3 id="incomingCallName" style="font-size:20px; font-weight:700; color:var(--ink); margin:0 0 4px;">Patient</h3>
+      <p id="incomingCallMeta" style="font-size:13.5px; color:var(--ink-soft); margin:0 0 24px;">Rate: ₹20/min · Ringing...</p>
+
+      <div style="display:flex; gap:14px; justify-content:center;">
+        <button class="btn btn-danger" id="incomingCallDeclineBtn" onclick="declineIncomingCall()" style="flex:1; padding:12px; font-size:15px; font-weight:600; border-radius:999px; display:flex; align-items:center; justify-content:center; gap:8px;">
+          <span>✕</span> Decline
+        </button>
+        <button class="btn btn-teal" id="incomingCallAcceptBtn" onclick="acceptIncomingCall()" style="flex:1; padding:12px; font-size:15px; font-weight:600; border-radius:999px; background:#16a34a; border-color:#16a34a; color:#fff; display:flex; align-items:center; justify-content:center; gap:8px;">
+          <span>📞</span> Accept
+        </button>
       </div>
     </div>
   </div>
@@ -3231,7 +3491,9 @@
     // Point this at wherever server.js is deployed. Same-origin
     // deployments (frontend served by the same Node process) can
     // simply use an empty string ''.
-    const API = 'https://dexa-consult.onrender.com';
+    const API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:')
+      ? 'http://localhost:4000'
+      : 'https://dexa-consult.onrender.com';
 
     /* =========================================================
        STATE
@@ -3261,6 +3523,126 @@
     let pc = null;
     let webrtcRole = null; // 'caller' (patient) | 'callee' (doctor)
     let remoteStreamEl = null;
+    let pendingIceCandidates = [];
+    let doctorEventSource = null;
+    let pendingIncomingCall = null;
+    let ringtoneAudioCtx = null;
+    let ringtoneInterval = null;
+
+    function playRingtone() {
+      try {
+        stopRingtone();
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        ringtoneAudioCtx = new AudioContext();
+        function beep() {
+          if (!ringtoneAudioCtx || ringtoneAudioCtx.state === 'closed') return;
+          const osc = ringtoneAudioCtx.createOscillator();
+          const gain = ringtoneAudioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(440, ringtoneAudioCtx.currentTime);
+          osc.frequency.setValueAtTime(480, ringtoneAudioCtx.currentTime + 0.12);
+          gain.gain.setValueAtTime(0.06, ringtoneAudioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ringtoneAudioCtx.currentTime + 0.45);
+          osc.connect(gain);
+          gain.connect(ringtoneAudioCtx.destination);
+          osc.start();
+          osc.stop(ringtoneAudioCtx.currentTime + 0.45);
+        }
+        beep();
+        ringtoneInterval = setInterval(beep, 1800);
+      } catch (e) {}
+    }
+
+    function stopRingtone() {
+      if (ringtoneInterval) { clearInterval(ringtoneInterval); ringtoneInterval = null; }
+      if (ringtoneAudioCtx) {
+        try { ringtoneAudioCtx.close(); } catch (e) {}
+        ringtoneAudioCtx = null;
+      }
+    }
+
+    function showIncomingCallModal(data) {
+      pendingIncomingCall = data;
+      const modal = document.getElementById('incomingCallModal');
+      if (!modal) return;
+      document.getElementById('incomingCallAvatar').textContent = initials(data.patientName || 'Patient');
+      document.getElementById('incomingCallName').textContent = data.patientName || 'Patient';
+      document.getElementById('incomingCallBadge').textContent = data.type === 'video' ? 'Incoming Video Call' : 'Incoming Audio Call';
+      document.getElementById('incomingCallMeta').textContent = `Rate: ₹${data.ratePerMin || 0}/min · Ringing...`;
+      modal.style.display = 'flex';
+      playRingtone();
+    }
+
+    function hideIncomingCallModal(sessionId) {
+      if (sessionId && pendingIncomingCall && pendingIncomingCall.sessionId !== sessionId) return;
+      pendingIncomingCall = null;
+      stopRingtone();
+      const modal = document.getElementById('incomingCallModal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    async function acceptIncomingCall() {
+      if (!pendingIncomingCall) return;
+      const callData = pendingIncomingCall;
+      stopRingtone();
+      hideIncomingCallModal();
+      try {
+        const updated = await api(`/api/sessions/${callData.sessionId}/accept`, 'POST', {}, session.token);
+        liveSession = updated;
+        await loadDoctorDashboard();
+        openLiveConsult(updated, 'doc');
+      } catch (e) {
+        toast(e.message, 'err');
+      }
+    }
+
+    async function declineIncomingCall() {
+      if (!pendingIncomingCall) return;
+      const callData = pendingIncomingCall;
+      stopRingtone();
+      hideIncomingCallModal();
+      try {
+        await api(`/api/sessions/${callData.sessionId}/reject`, 'POST', {}, session.token);
+        toast('Call declined.', 'ok');
+        await loadDoctorDashboard();
+      } catch (e) {
+        toast(e.message, 'err');
+      }
+    }
+
+    function startDoctorEventListener() {
+      if (doctorEventSource || !session.token || session.role !== 'doctor') return;
+      try {
+        doctorEventSource = new EventSource(API + `/api/me/doctor/events?token=${encodeURIComponent(session.token)}`);
+        doctorEventSource.addEventListener('incoming_call', (e) => {
+          const data = JSON.parse(e.data);
+          showIncomingCallModal(data);
+        });
+        doctorEventSource.addEventListener('call_cancelled', (e) => {
+          const data = JSON.parse(e.data);
+          hideIncomingCallModal(data.sessionId);
+          toast('Call cancelled by patient.', 'info');
+        });
+        doctorEventSource.addEventListener('call_accepted', () => {
+          hideIncomingCallModal();
+        });
+        doctorEventSource.addEventListener('call_rejected', () => {
+          hideIncomingCallModal();
+        });
+        doctorEventSource.onerror = () => {
+          // EventSource will auto-reconnect
+        };
+      } catch (e) {}
+    }
+
+    function stopDoctorEventListener() {
+      if (doctorEventSource) {
+        try { doctorEventSource.close(); } catch (e) {}
+        doctorEventSource = null;
+      }
+      hideIncomingCallModal();
+    }
 
     const CATEGORIES = [
       { key: 'all', label: 'All doctors', icon: '🩺' },
@@ -3482,13 +3864,21 @@
        AUTH MODAL
        ========================================================= */
     function openAuth(role, mode) {
-      authRole = role; authMode = mode || 'login';
-      setAuthRole(role, true);
-      if ((mode === 'signup') !== (authMode === 'signup')) { } // no-op guard
+      authRole = role || 'patient';
+      authMode = mode || 'login';
+      setAuthRole(authRole, true);
       applyAuthMode();
+      document.getElementById('fPassword').value = '';
+      const msg = document.getElementById('authMsg');
+      if (msg) { msg.textContent = ''; msg.className = 'inline-msg'; }
       document.getElementById('authModal').classList.add('show');
     }
-    function closeAuth() { document.getElementById('authModal').classList.remove('show'); }
+    function closeAuth() {
+      document.getElementById('authModal').classList.remove('show');
+      document.getElementById('fPassword').value = '';
+      const msg = document.getElementById('authMsg');
+      if (msg) { msg.textContent = ''; msg.className = 'inline-msg'; }
+    }
     document.getElementById('authModal').addEventListener('click', (e) => { if (e.target.id === 'authModal') closeAuth(); });
 
     function setAuthRole(role, skipRerender) {
@@ -3507,6 +3897,8 @@
       document.getElementById('signupFields').style.display = authMode === 'signup' ? 'block' : 'none';
       document.getElementById('doctorSignupExtra').style.display = (authRole === 'doctor' && authMode === 'signup') ? 'block' : 'none';
       document.getElementById('patientPhoneField').style.display = (authRole === 'patient' && authMode === 'signup') ? 'block' : 'none';
+      const forgotBtn = document.getElementById('forgotPassBtn');
+      if (forgotBtn) forgotBtn.style.display = authMode === 'login' ? 'inline' : 'none';
       document.getElementById('authSubmitBtn').textContent = authMode === 'signup' ? 'Create account' : 'Log in';
       document.getElementById('authSwitchText').textContent = authMode === 'signup' ? 'Already have an account?' : 'New to Dexa Consult?';
       document.getElementById('authSwitchBtn').textContent = authMode === 'signup' ? 'Log in' : 'Create an account';
@@ -3522,7 +3914,7 @@
 
     async function submitAuth() {
       const msg = document.getElementById('authMsg');
-      const email = document.getElementById('fEmail').value.trim();
+      const email = document.getElementById('fEmail').value.trim().toLowerCase();
       const password = document.getElementById('fPassword').value;
       if (!email || !password) { showMsg(msg, 'Please fill in your email and password.', false); return; }
       try {
@@ -3550,6 +3942,7 @@
         session.role = authRole;
         localStorage.setItem('dexa_consult_token', result.token);
         localStorage.setItem('dexa_consult_role', authRole);
+        document.getElementById('fPassword').value = '';
         closeAuth();
         await enterApp();
       } catch (e) {
@@ -3558,17 +3951,235 @@
     }
 
     function logout() {
+      closeAccountMenu();
       localStorage.removeItem('dexa_consult_token');
       localStorage.removeItem('dexa_consult_role');
       session = { token: null, role: null, me: null };
       clearInterval(liveTimer);
-      if (liveEventSource) liveEventSource.close();
+      if (liveEventSource) {
+        liveEventSource.close();
+        liveEventSource = null;
+      }
+      stopDoctorEventListener();
+      closeWebRTC();
+      document.getElementById('consultOverlay').classList.remove('show');
+      liveSession = null;
       document.getElementById('loggedInActions').style.display = 'none';
       document.getElementById('loggedOutActions').style.display = 'flex';
       document.getElementById('marketingNav').style.display = 'flex';
       document.getElementById('marketingFooter').style.display = 'block';
+      document.getElementById('avatarBtn').textContent = '–';
+      document.getElementById('menuUserName').textContent = 'User';
+      document.getElementById('menuUserRole').textContent = 'Account';
+      document.getElementById('patName').textContent = '-';
+      document.getElementById('patMeta').textContent = '-';
+      document.getElementById('docName').textContent = '-';
+      document.getElementById('docMeta').textContent = '-';
       showScreen('Landing');
       toast('Logged out');
+    }
+
+    /* =========================================================
+       ACCOUNT MENU
+       ========================================================= */
+    function toggleAccountMenu(e) {
+      if (e) e.stopPropagation();
+      const dd = document.getElementById('accountDropdown');
+      if (dd) dd.classList.toggle('show');
+    }
+    function closeAccountMenu() {
+      const dd = document.getElementById('accountDropdown');
+      if (dd) dd.classList.remove('show');
+    }
+    document.addEventListener('click', (e) => {
+      const dd = document.getElementById('accountDropdown');
+      const btn = document.getElementById('avatarBtn');
+      if (dd && dd.classList.contains('show') && !dd.contains(e.target) && e.target !== btn) {
+        closeAccountMenu();
+      }
+    });
+
+    /* =========================================================
+       PROFILE MODAL (Personal Details)
+       ========================================================= */
+    function openProfileModal() {
+      const msg = document.getElementById('profileMsg');
+      if (msg) { msg.textContent = ''; msg.className = 'inline-msg'; }
+      const isDoc = session.role === 'doctor';
+      document.getElementById('patientProfileFields').style.display = isDoc ? 'none' : 'block';
+      document.getElementById('doctorProfileFields').style.display = isDoc ? 'block' : 'none';
+      document.getElementById('profileModalTitle').textContent = isDoc ? 'Doctor Profile' : 'Personal Details';
+      document.getElementById('profileModalDesc').textContent = isDoc
+        ? 'Update your practitioner details and specialization.'
+        : 'Update your personal details below.';
+
+      if (isDoc && session.me) {
+        document.getElementById('profDocName').value = session.me.name || '';
+        document.getElementById('profDocEmail').value = session.me.email || '';
+        document.getElementById('profDocSpec').value = session.me.specialization || '';
+        document.getElementById('profDocState').value = session.me.state || '';
+      } else if (session.me) {
+        document.getElementById('profPatName').value = session.me.name || '';
+        document.getElementById('profPatEmail').value = session.me.email || '';
+        document.getElementById('profPatPhone').value = session.me.phone || '';
+      }
+      document.getElementById('profileModal').classList.add('show');
+    }
+    function closeProfileModal() {
+      document.getElementById('profileModal').classList.remove('show');
+    }
+    document.getElementById('profileModal')?.addEventListener('click', (e) => {
+      if (e.target.id === 'profileModal') closeProfileModal();
+    });
+
+    async function saveProfile() {
+      const msg = document.getElementById('profileMsg');
+      const btn = document.getElementById('profileSaveBtn');
+      btn.disabled = true;
+      try {
+        if (session.role === 'doctor') {
+          const name = document.getElementById('profDocName').value.trim();
+          const email = document.getElementById('profDocEmail').value.trim().toLowerCase();
+          const specialization = document.getElementById('profDocSpec').value.trim();
+          const state = document.getElementById('profDocState').value.trim();
+          if (!name) throw new Error('Name cannot be empty.');
+          if (!email) throw new Error('Email cannot be empty.');
+          const updated = await api('/api/me/doctor', 'PATCH', { name, email, specialization, state }, session.token);
+          session.me = { ...session.me, ...updated };
+          document.getElementById('avatarBtn').textContent = initials(session.me.name);
+          document.getElementById('docAvatarDp').textContent = initials(session.me.name);
+          document.getElementById('docName').textContent = session.me.name;
+          document.getElementById('docMeta').textContent = `${session.me.specialization || 'General'} · ${session.me.state || '-'}`;
+          document.getElementById('menuUserName').textContent = session.me.name;
+          document.getElementById('menuUserRole').textContent = `Doctor (${session.me.specialization || 'General'})`;
+          closeProfileModal();
+          toast('Profile updated successfully', 'ok');
+        } else {
+          const name = document.getElementById('profPatName').value.trim();
+          const email = document.getElementById('profPatEmail').value.trim().toLowerCase();
+          const phone = document.getElementById('profPatPhone').value.trim();
+          if (!name) throw new Error('Name cannot be empty.');
+          if (!email) throw new Error('Email cannot be empty.');
+          const updated = await api('/api/me/patient', 'PATCH', { name, email, phone }, session.token);
+          session.me = { ...session.me, ...updated };
+          document.getElementById('avatarBtn').textContent = initials(session.me.name);
+          document.getElementById('patAvatarDp').textContent = initials(session.me.name);
+          document.getElementById('patName').textContent = session.me.name;
+          document.getElementById('patMeta').textContent = session.me.email + (session.me.phone ? ` · ${session.me.phone}` : '');
+          document.getElementById('menuUserName').textContent = session.me.name;
+          document.getElementById('menuUserRole').textContent = 'Patient · ' + session.me.email;
+          closeProfileModal();
+          toast('Personal details updated successfully', 'ok');
+        }
+      } catch (e) {
+        showMsg(msg, e.message, false);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    /* =========================================================
+       PASSWORD RESET MODAL
+       ========================================================= */
+    let resetRole = 'patient';
+
+    function openForgotModal() {
+      closeAuth();
+      resetRole = authRole || 'patient';
+      setResetRole(resetRole);
+      showResetStage('request');
+      const emailInput = document.getElementById('fEmail');
+      if (emailInput && emailInput.value) {
+        document.getElementById('fResetEmail').value = emailInput.value.trim();
+      }
+      document.getElementById('fResetToken').value = '';
+      document.getElementById('fResetNewPass').value = '';
+      document.getElementById('fResetConfirmPass').value = '';
+      clearMsg('resetRequestMsg');
+      clearMsg('resetConfirmMsg');
+      document.getElementById('resetModal').classList.add('show');
+    }
+
+    function closeResetModal() {
+      document.getElementById('resetModal').classList.remove('show');
+    }
+
+    document.getElementById('resetModal')?.addEventListener('click', (e) => {
+      if (e.target.id === 'resetModal') closeResetModal();
+    });
+
+    function setResetRole(role) {
+      resetRole = role;
+      document.getElementById('resetRolePatientBtn').classList.toggle('active', role === 'patient');
+      document.getElementById('resetRoleDoctorBtn').classList.toggle('active', role === 'doctor');
+    }
+
+    function showResetStage(stage) {
+      document.getElementById('resetStageRequest').style.display = stage === 'request' ? 'block' : 'none';
+      document.getElementById('resetStageConfirm').style.display = stage === 'confirm' ? 'block' : 'none';
+      clearMsg('resetRequestMsg');
+      clearMsg('resetConfirmMsg');
+    }
+
+    function clearMsg(id) {
+      const el = document.getElementById(id);
+      if (el) { el.textContent = ''; el.className = 'inline-msg'; }
+    }
+
+    async function submitForgotPassword() {
+      const msg = document.getElementById('resetRequestMsg');
+      const email = document.getElementById('fResetEmail').value.trim().toLowerCase();
+      if (!email) { showMsg(msg, 'Please enter your email address.', false); return; }
+
+      const btn = document.getElementById('resetRequestBtn');
+      btn.disabled = true;
+      try {
+        const res = await api(`/api/auth/${resetRole}/forgot-password`, 'POST', { email });
+        showMsg(msg, res.message || 'If an account exists with this email, password reset instructions have been generated.', true);
+
+        // In local development, if devResetToken is provided, assist testing
+        if (res.devResetToken) {
+          document.getElementById('fResetToken').value = res.devResetToken;
+          setTimeout(() => {
+            showResetStage('confirm');
+            showMsg(document.getElementById('resetConfirmMsg'), 'Token generated (Dev Mode). Please enter your new password.', true);
+          }, 1200);
+        }
+      } catch (e) {
+        showMsg(msg, e.message, false);
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function submitResetPassword() {
+      const msg = document.getElementById('resetConfirmMsg');
+      const token = document.getElementById('fResetToken').value.trim();
+      const newPassword = document.getElementById('fResetNewPass').value;
+      const confirmPassword = document.getElementById('fResetConfirmPass').value;
+
+      if (!token) { showMsg(msg, 'Please enter the reset token.', false); return; }
+      if (!newPassword || newPassword.length < 6) {
+        showMsg(msg, 'Password must be at least 6 characters.', false);
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        showMsg(msg, 'Passwords do not match.', false);
+        return;
+      }
+
+      const btn = document.getElementById('resetConfirmBtn');
+      btn.disabled = true;
+      try {
+        const res = await api(`/api/auth/${resetRole}/reset-password`, 'POST', { token, newPassword });
+        closeResetModal();
+        openAuth(resetRole, 'login');
+        showMsg(document.getElementById('authMsg'), res.message || 'Password has been reset successfully. Please log in with your new password.', true);
+      } catch (e) {
+        showMsg(msg, e.message, false);
+      } finally {
+        btn.disabled = false;
+      }
     }
 
     /* =========================================================
@@ -3605,13 +4216,6 @@
       }
     }
 
-    function toggleAccountMenu() { logout(); } // simple: avatar click = logout confirm-less for MVP
-    document.getElementById('avatarBtn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (!confirm('Log out of Dexa Consult?')) return;
-      logout();
-    });
-
     /* =========================================================
        PATIENT DASHBOARD
        ========================================================= */
@@ -3627,7 +4231,9 @@
       document.getElementById('avatarBtn').textContent = initials(me.name);
       document.getElementById('patAvatarDp').textContent = initials(me.name);
       document.getElementById('patName').textContent = me.name;
-      document.getElementById('patMeta').textContent = me.email;
+      document.getElementById('patMeta').textContent = me.email + (me.phone ? ` · ${me.phone}` : '');
+      document.getElementById('menuUserName').textContent = me.name;
+      document.getElementById('menuUserRole').textContent = 'Patient · ' + me.email;
       document.getElementById('patBalanceInline').textContent = money(me.walletBalance);
       document.getElementById('patBalanceBig').textContent = money(me.walletBalance);
       document.getElementById('chipWallet').textContent = money(me.walletBalance);
@@ -3718,6 +4324,8 @@
       document.getElementById('docAvatarDp').textContent = initials(me.name);
       document.getElementById('docName').textContent = me.name;
       document.getElementById('docMeta').textContent = `${me.specialization || 'General'} · ${me.state || '-'}`;
+      document.getElementById('menuUserName').textContent = me.name;
+      document.getElementById('menuUserRole').textContent = `Doctor (${me.specialization || 'General'})`;
       document.getElementById('docRateChat').value = me.rates.chat;
       document.getElementById('docRateCall').value = me.rates.call;
       document.getElementById('docRateVideo').value = me.rates.video;
@@ -3728,11 +4336,23 @@
       document.getElementById('chipDocStatus').textContent = me.status[0].toUpperCase() + me.status.slice(1);
       document.getElementById('chipDot').className = 'status-dot ' + (me.status === 'online' ? 'online' : me.status === 'busy' ? 'busy' : '');
 
+      startDoctorEventListener();
+
+      if (me.pendingSession && (!pendingIncomingCall || pendingIncomingCall.sessionId === me.pendingSession.id)) {
+        showIncomingCallModal({
+          sessionId: me.pendingSession.id,
+          type: me.pendingSession.type,
+          patientName: 'Patient',
+          ratePerMin: me.pendingSession.ratePerMin,
+        });
+      }
+
       const alertBox = document.getElementById('docLiveAlert');
       if (me.activeSession) {
         liveSession = me.activeSession;
         alertBox.style.display = 'flex';
-        document.getElementById('docLiveAlertMeta').textContent = `${me.activeSession.type} · started ${new Date(me.activeSession.startTime).toLocaleTimeString()}`;
+        const startStr = me.activeSession.billingStartTime || me.activeSession.startTime || me.activeSession.requestedAt;
+        document.getElementById('docLiveAlertMeta').textContent = `${me.activeSession.type} · started ${new Date(startStr).toLocaleTimeString()}`;
       } else {
         alertBox.style.display = 'none';
       }
@@ -3785,6 +4405,7 @@
       const overlay = document.getElementById('consultOverlay');
       overlay.classList.add('show');
 
+      const isPending = sessionObj.status === 'pending';
       const otherName = who === 'doc' ? (session.me && session.me.activeSession ? 'Patient' : 'Patient') : (findDoctorNameFallback());
       document.getElementById('cvName').textContent = who === 'doc' ? 'Patient consultation' : otherName;
       document.getElementById('cvType').textContent = sessionObj.type;
@@ -3805,20 +4426,69 @@
         document.getElementById('chatScroll').innerHTML = '';
       } else if (sessionObj.type === 'call') {
         document.getElementById('callPane').style.display = 'flex';
-        startWebRTC(sessionObj, { video: false });
+        const sub = document.getElementById('callSubStatus');
+        if (isPending) {
+          if (sub) sub.textContent = 'Ringing… Waiting for doctor to accept.';
+        } else {
+          if (sub) sub.textContent = 'Connected · billing is live - end anytime.';
+          startWebRTC(sessionObj, { video: false });
+        }
       } else {
         document.getElementById('videoPane').style.display = 'flex';
-        startWebRTC(sessionObj, { video: true });
+        const vsub = document.getElementById('videoSubStatus');
+        if (isPending) {
+          if (vsub) vsub.textContent = 'Ringing… Waiting for doctor to accept.';
+        } else {
+          if (vsub) vsub.textContent = 'Connected · billing is live - end anytime.';
+          startWebRTC(sessionObj, { video: true });
+        }
       }
 
-      let seconds = sessionObj.elapsedSec || 0;
-      updateElapsedLabel(seconds);
-      document.getElementById('cvAmount').textContent = money(sessionObj.amountCharged || 0);
       clearInterval(liveTimer);
-      liveTimer = setInterval(() => { seconds++; updateElapsedLabel(seconds); }, 1000);
+      if (isPending) {
+        updateElapsedLabel(0);
+        document.getElementById('cvAmount').textContent = money(0);
+      } else {
+        let seconds = sessionObj.elapsedSec || 0;
+        updateElapsedLabel(seconds);
+        document.getElementById('cvAmount').textContent = money(sessionObj.amountCharged || 0);
+        liveTimer = setInterval(() => { seconds++; updateElapsedLabel(seconds); }, 1000);
+      }
 
       if (liveEventSource) liveEventSource.close();
       liveEventSource = new EventSource(API + `/api/sessions/${sessionObj.id}/events`);
+
+      liveEventSource.addEventListener('call_accepted', (e) => {
+        const data = JSON.parse(e.data);
+        if (liveSession && liveSession.id === data.sessionId) {
+          liveSession.status = 'active';
+          liveSession.billingStartTime = data.session?.billingStartTime || new Date().toISOString();
+
+          const sub = document.getElementById('callSubStatus');
+          const vsub = document.getElementById('videoSubStatus');
+          if (sub) sub.textContent = 'Connected · billing is live - end anytime.';
+          if (vsub) vsub.textContent = 'Connected · billing is live - end anytime.';
+
+          let seconds = 0;
+          updateElapsedLabel(0);
+          clearInterval(liveTimer);
+          liveTimer = setInterval(() => { seconds++; updateElapsedLabel(seconds); }, 1000);
+
+          if (webrtcRole === 'caller') {
+            startWebRTC(liveSession, { video: liveSession.type === 'video' });
+          }
+        }
+      });
+
+      liveEventSource.addEventListener('call_rejected', () => {
+        clearInterval(liveTimer);
+        closeWebRTC();
+        overlay.classList.remove('show');
+        liveSession = null;
+        toast('Doctor declined the call. No amount was charged.', 'ok');
+        if (session.role === 'doctor') loadDoctorDashboard(); else loadPatientDashboard();
+      });
+
       liveEventSource.addEventListener('tick', (e) => {
         const data = JSON.parse(e.data);
         document.getElementById('cvAmount').textContent = money(data.amountCharged);
@@ -3830,33 +4500,47 @@
           document.getElementById('consultLowBanner').classList.toggle('show', data.walletBalance < nextTickCost * 3);
         }
       });
+
       liveEventSource.addEventListener('chat_message', (e) => {
         const data = JSON.parse(e.data);
         appendChatBubble(data.sender, data.message, who);
       });
+
       liveEventSource.addEventListener('signal', (e) => {
         const data = JSON.parse(e.data);
         if (data.from === webrtcRole) return; // ignore our own relayed message
         handleSignal(data.data);
       });
+
       liveEventSource.addEventListener('session_ended', (e) => {
         const data = JSON.parse(e.data);
         clearInterval(liveTimer);
         closeWebRTC();
         overlay.classList.remove('show');
         liveSession = null;
-        toast(data.reason === 'low_balance' ? 'Consult ended - wallet balance ran out.' : 'Consult ended.', data.reason === 'low_balance' ? 'err' : 'ok');
+        if (data.reason === 'no_answer') {
+          toast('Doctor did not answer. No charges were deducted.', 'info');
+        } else if (data.reason === 'cancelled') {
+          toast('Consultation was cancelled. ₹0 charged.', 'ok');
+        } else if (data.reason === 'low_balance') {
+          toast('Consult ended - wallet balance ran out.', 'err');
+        } else {
+          toast('Consult ended.', 'ok');
+        }
         if (session.role === 'doctor') loadDoctorDashboard(); else loadPatientDashboard();
       });
     }
+
     function findDoctorNameFallback() {
       const card = document.querySelector('#doctorBrowseList .doctor-card .name');
       return card ? card.textContent : 'Your doctor';
     }
+
     function updateElapsedLabel(seconds) {
       const m = Math.floor(seconds / 60), s = seconds % 60;
       document.getElementById('cvElapsed').textContent = `${m}:${s.toString().padStart(2, '0')}`;
     }
+
     function appendChatBubble(sender, message, who) {
       const mine = (who === 'doc' && sender === 'doctor') || (who === 'pat' && sender === 'patient');
       const box = document.getElementById('chatScroll');
@@ -3868,6 +4552,7 @@
       box.appendChild(div);
       box.scrollTop = box.scrollHeight;
     }
+
     async function sendChat() {
       const input = document.getElementById('chatInput');
       const text = input.value.trim();
@@ -3878,10 +4563,12 @@
         await api(`/api/sessions/${liveSession.id}/chat`, 'POST', { sender, message: text }, session.token);
       } catch (e) { toast(e.message, 'err'); }
     }
+
     async function endLiveSession() {
       if (!liveSession) return;
-      try { await api(`/api/sessions/${liveSession.id}/end`, 'POST', {}, session.token); }
-      catch (e) { toast(e.message, 'err'); }
+      try {
+        await api(`/api/sessions/${liveSession.id}/end`, 'POST', {}, session.token);
+      } catch (e) { toast(e.message, 'err'); }
     }
 
     /* =========================================================
@@ -3896,6 +4583,7 @@
 
     function createPeerConnection() {
       pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+      pendingIceCandidates = [];
       pc.onicecandidate = (e) => { if (e.candidate) sendSignal({ kind: 'ice', candidate: e.candidate }); };
       pc.oniceconnectionstatechange = () => {
         if (!pc) return;
@@ -3905,7 +4593,7 @@
           if (sub) sub.textContent = 'Connected · billing is live - end anytime.';
           if (vsub) vsub.textContent = 'Connected · billing is live - end anytime.';
         } else if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
-          const msg = 'Connection interrupted — check network and retry.';
+          const msg = 'Connection interrupted — checking network…';
           if (sub) sub.textContent = msg;
           if (vsub) vsub.textContent = msg;
         }
@@ -3938,34 +4626,63 @@
           wrap.querySelector('video').srcObject = localStream;
         }
       } catch (e) {
-        toast('Camera/microphone access was denied — the other side may still hear/see you if you allow it and retry.', 'err');
+        toast('Media access: ' + (e.message || 'Permission denied'), 'err');
       }
 
       if (webrtcRole === 'caller') {
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        sendSignal({ kind: 'offer', sdp: pc.localDescription });
+        try {
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          sendSignal({ kind: 'offer', sdp: pc.localDescription });
+        } catch (e) {
+          console.error('Failed to create offer:', e);
+        }
       }
     }
 
     async function handleSignal(data) {
-      if (!pc) return; // signal arrived before we were ready — the sender's ICE restart / renegotiation will recover
-      if (data.kind === 'offer') {
-        await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        sendSignal({ kind: 'answer', sdp: pc.localDescription });
-      } else if (data.kind === 'answer') {
-        await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
-      } else if (data.kind === 'ice' && data.candidate) {
-        try { await pc.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch (e) { /* benign if connection already closed */ }
+      if (!pc) return;
+      try {
+        if (data.kind === 'offer') {
+          await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+          while (pendingIceCandidates.length > 0) {
+            const cand = pendingIceCandidates.shift();
+            try { await pc.addIceCandidate(new RTCIceCandidate(cand)); } catch (err) {}
+          }
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          sendSignal({ kind: 'answer', sdp: pc.localDescription });
+        } else if (data.kind === 'answer') {
+          await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+          while (pendingIceCandidates.length > 0) {
+            const cand = pendingIceCandidates.shift();
+            try { await pc.addIceCandidate(new RTCIceCandidate(cand)); } catch (err) {}
+          }
+        } else if (data.kind === 'ice' && data.candidate) {
+          if (pc.remoteDescription && pc.remoteDescription.type) {
+            try { await pc.addIceCandidate(new RTCIceCandidate(data.candidate)); } catch (e) {}
+          } else {
+            pendingIceCandidates.push(data.candidate);
+          }
+        }
+      } catch (err) {
+        console.warn('Signaling error:', err);
       }
     }
 
     function closeWebRTC() {
-      if (pc) { pc.close(); pc = null; }
-      if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
-      if (remoteStreamEl) { remoteStreamEl.remove(); remoteStreamEl = null; }
+      if (pc) { try { pc.close(); } catch (e) {} pc = null; }
+      pendingIceCandidates = [];
+      if (localStream) {
+        localStream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+        localStream = null;
+      }
+      if (remoteStreamEl) {
+        try { remoteStreamEl.pause?.(); } catch (e) {}
+        remoteStreamEl.srcObject = null;
+        remoteStreamEl.remove();
+        remoteStreamEl = null;
+      }
       webrtcRole = null;
       const wrap = document.getElementById('selfTileWrap');
       if (wrap) wrap.innerHTML = '<span class="placeholder-ico">🙂</span><span class="tag">You</span>';

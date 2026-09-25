@@ -64,22 +64,46 @@ const server = http.createServer(async (req, res) => {
     if (parts[0] === 'api' && parts[1] === 'sessions' && parts[3] === 'events' && req.method === 'GET') {
       return sessionsCtrl.events(parts[2], res);
     }
+    if (parts[0] === 'api' && parts[1] === 'me' && parts[2] === 'doctor' && parts[3] === 'events' && req.method === 'GET') {
+      const authHeader = req.headers['authorization'] || '';
+      const match = authHeader.match(/^Bearer (.+)$/);
+      const token = match ? match[1] : (url.searchParams.get('token') || '');
+      const doctor = authCtrl.authenticateDoctor({ headers: { authorization: `Bearer ${token}` } });
+      if (!doctor) {
+        res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        return res.end(JSON.stringify({ error: 'Login required' }));
+      }
+      return require('./sse').subscribeDoctor(doctor.id, res);
+    }
 
     const body = ['POST', 'PATCH'].includes(req.method) ? await readBody(req) : {};
     const query = Object.fromEntries(url.searchParams);
 
-    // --- Auth (self-serve signup / login) ---
+    // --- Auth (self-serve signup / login / password reset) ---
     if (parts[0] === 'api' && parts[1] === 'auth' && parts[2] === 'doctor' && parts[3] === 'signup' && req.method === 'POST') {
       return reply(res, authCtrl.doctorSignup(body));
     }
     if (parts[0] === 'api' && parts[1] === 'auth' && parts[2] === 'doctor' && parts[3] === 'login' && req.method === 'POST') {
       return reply(res, authCtrl.doctorLogin(body));
     }
+    if (parts[0] === 'api' && parts[1] === 'auth' && parts[2] === 'doctor' && parts[3] === 'forgot-password' && req.method === 'POST') {
+      return reply(res, authCtrl.doctorForgotPassword(body));
+    }
+    if (parts[0] === 'api' && parts[1] === 'auth' && parts[2] === 'doctor' && parts[3] === 'reset-password' && req.method === 'POST') {
+      return reply(res, authCtrl.doctorResetPassword(body));
+    }
+
     if (parts[0] === 'api' && parts[1] === 'auth' && parts[2] === 'patient' && parts[3] === 'signup' && req.method === 'POST') {
       return reply(res, authCtrl.patientSignup(body));
     }
     if (parts[0] === 'api' && parts[1] === 'auth' && parts[2] === 'patient' && parts[3] === 'login' && req.method === 'POST') {
       return reply(res, authCtrl.patientLogin(body));
+    }
+    if (parts[0] === 'api' && parts[1] === 'auth' && parts[2] === 'patient' && parts[3] === 'forgot-password' && req.method === 'POST') {
+      return reply(res, authCtrl.patientForgotPassword(body));
+    }
+    if (parts[0] === 'api' && parts[1] === 'auth' && parts[2] === 'patient' && parts[3] === 'reset-password' && req.method === 'POST') {
+      return reply(res, authCtrl.patientResetPassword(body));
     }
 
     // --- Doctor's own dashboard (requires Authorization: Bearer <token>) ---
@@ -95,8 +119,9 @@ const server = http.createServer(async (req, res) => {
     }
 
     // --- Patient's own dashboard (requires Authorization: Bearer <token>) ---
-    if (parts[0] === 'api' && parts[1] === 'me' && parts[2] === 'patient' && parts.length === 3 && req.method === 'GET') {
-      return reply(res, mePatientCtrl.profile(req));
+    if (parts[0] === 'api' && parts[1] === 'me' && parts[2] === 'patient' && parts.length === 3) {
+      if (req.method === 'GET') return reply(res, mePatientCtrl.profile(req));
+      if (req.method === 'PATCH') return reply(res, mePatientCtrl.update(req, body));
     }
     if (parts[0] === 'api' && parts[1] === 'me' && parts[2] === 'patient' && parts[3] === 'doctors' && req.method === 'GET') {
       return reply(res, mePatientCtrl.browseDoctors(req));
@@ -141,6 +166,14 @@ const server = http.createServer(async (req, res) => {
     // --- Sessions ---
     if (parts[0] === 'api' && parts[1] === 'sessions' && parts[2] === 'start' && req.method === 'POST') {
       return reply(res, sessionsCtrl.start(body));
+    }
+    if (parts[0] === 'api' && parts[1] === 'sessions' && parts[3] === 'accept' && req.method === 'POST') {
+      const doctor = authCtrl.authenticateDoctor(req);
+      return reply(res, sessionsCtrl.accept(parts[2], doctor ? doctor.id : null));
+    }
+    if (parts[0] === 'api' && parts[1] === 'sessions' && parts[3] === 'reject' && req.method === 'POST') {
+      const doctor = authCtrl.authenticateDoctor(req);
+      return reply(res, sessionsCtrl.reject(parts[2], doctor ? doctor.id : null));
     }
     if (parts[0] === 'api' && parts[1] === 'sessions' && parts[3] === 'end' && req.method === 'POST') {
       return reply(res, sessionsCtrl.end(parts[2]));

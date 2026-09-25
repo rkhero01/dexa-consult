@@ -9,14 +9,56 @@ function requirePatient(req) {
 }
 
 module.exports = {
-  // GET /api/me/patient  — profile + current active session (if any)
+  // GET /api/me/patient  — profile + current active / pending session (if any)
   profile(req) {
     const patient = requirePatient(req);
     if (!patient) return { status: 401, body: { error: 'Login required' } };
     const activeSession = db.sessions.where(
-      (s) => s.patientId === patient.id && s.status === 'active'
+      (s) => s.patientId === patient.id && (s.status === 'active' || s.status === 'pending')
     )[0] || null;
     return { status: 200, body: { ...auth.safePatient(patient), activeSession } };
+  },
+
+  // PATCH /api/me/patient  { name?, email?, phone? }
+  update(req, body) {
+    const patient = requirePatient(req);
+    if (!patient) return { status: 401, body: { error: 'Login required' } };
+
+    const { name, email, phone } = body || {};
+    const patch = {};
+
+    if (name !== undefined) {
+      if (typeof name !== 'string' || !name.trim()) {
+        return { status: 400, body: { error: 'Name cannot be empty' } };
+      }
+      patch.name = name.trim();
+    }
+
+    if (email !== undefined) {
+      const trimmedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!trimmedEmail || !emailRegex.test(trimmedEmail)) {
+        return { status: 400, body: { error: 'A valid email is required' } };
+      }
+      const existing = db.patients.where(
+        (p) => p.email && p.email.toLowerCase() === trimmedEmail && p.id !== patient.id
+      );
+      if (existing.length > 0) {
+        return { status: 409, body: { error: 'An account with this email already exists' } };
+      }
+      patch.email = trimmedEmail;
+    }
+
+    if (phone !== undefined) {
+      patch.phone = typeof phone === 'string' ? phone.trim() : String(phone);
+    }
+
+    if (Object.keys(patch).length === 0) {
+      return { status: 400, body: { error: 'At least one field (name, email, phone) is required to update' } };
+    }
+
+    const updated = db.patients.update(patient.id, patch);
+    return { status: 200, body: auth.safePatient(updated) };
   },
 
   // GET /api/me/patient/doctors  — browse doctors available to book

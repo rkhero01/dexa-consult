@@ -24,7 +24,7 @@ function startBilling(sessionId) {
 
   const handle = setInterval(() => {
     const session = db.sessions.find(sessionId);
-    if (!session || session.status !== 'active') {
+    if (!session || session.status !== 'active' || !session.billingStartTime) {
       stopBilling(sessionId);
       return;
     }
@@ -56,7 +56,9 @@ function startBilling(sessionId) {
       note: `${session.type} consult tick (${TICK_SEC}s)`,
     });
 
-    const elapsedSec = (session.elapsedSec || 0) + TICK_SEC;
+    const now = Date.now();
+    const billingStartMs = new Date(session.billingStartTime).getTime();
+    const elapsedSec = Math.max(0, Math.floor((now - billingStartMs) / 1000));
     const amountCharged = +((session.amountCharged || 0) + cost).toFixed(2);
     db.sessions.update(sessionId, { elapsedSec, amountCharged });
 
@@ -87,10 +89,18 @@ function endSession(sessionId, reason = 'manual') {
 
   stopBilling(sessionId);
 
+  const now = new Date().toISOString();
+  let elapsedSec = session.elapsedSec || 0;
+  if (session.billingStartTime) {
+    elapsedSec = Math.max(0, Math.floor((new Date(now).getTime() - new Date(session.billingStartTime).getTime()) / 1000));
+  }
+
   const updated = db.sessions.update(sessionId, {
     status: 'ended',
     endedReason: reason,
-    endTime: new Date().toISOString(),
+    endTime: now,
+    endedAt: now,
+    elapsedSec,
   });
 
   broadcast(sessionId, {
