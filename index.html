@@ -3487,12 +3487,11 @@
     /* =========================================================
        CONFIG
        ========================================================= */
-    // Point this at wherever server.js is deployed. Same-origin
-    // deployments (frontend served by the same Node process) can
-    // simply use an empty string ''.
-    const API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:')
-      ? 'http://localhost:4000'
-      : 'https://dexa-consult.onrender.com';
+    // Production backend is hosted on Render at https://dexa-consult.onrender.com.
+    // On GitHub Pages (rkhero01.github.io), all API calls and SSE connections point to Render.
+    const API = (window.location.hostname.includes('github.io') || (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'))
+      ? 'https://dexa-consult.onrender.com'
+      : 'http://localhost:4000';
 
     /* =========================================================
        STATE

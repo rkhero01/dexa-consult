@@ -10,7 +10,7 @@ const https = require('https');
 // Track last sent email in memory for testing and auditing
 let lastSentEmail = null;
 
-const FRONTEND_URL = process.env.FRONTEND_URL || process.env.APP_URL || (process.env.NODE_ENV === 'production' ? 'https://dexa-consult.onrender.com' : 'http://localhost:4000');
+const FRONTEND_URL = process.env.FRONTEND_URL || process.env.APP_URL || (process.env.NODE_ENV === 'production' ? 'https://rkhero01.github.io/dexa-consult' : 'http://localhost:4000');
 const EMAIL_FROM = process.env.EMAIL_FROM || 'Dexa Consult <onboarding@resend.dev>';
 const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 

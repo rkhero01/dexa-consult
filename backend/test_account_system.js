@@ -20,7 +20,7 @@ function restoreData() {
 
 // Start server on port 4001 to avoid conflicts
 process.env.PORT = '4001';
-process.env.FRONTEND_URL = 'https://dexa-consult.onrender.com';
+process.env.FRONTEND_URL = 'https://rkhero01.github.io/dexa-consult';
 const server = require('./server'); // starts server on PORT 4001
 const emailService = require('./emailService');
 const db = require('./db');
@@ -195,7 +195,7 @@ async function runTests() {
     assert.strictEqual(sentEmail.to, updatedEmail.toLowerCase());
     assert(sentEmail.resetToken, 'Email contains raw reset token');
     assert.strictEqual(sentEmail.resetToken.length, 64, 'Token is 32 cryptographically secure bytes (64 hex chars)');
-    assert(sentEmail.resetLink.includes('https://dexa-consult.onrender.com/platform.html?resetToken='), 'Reset link uses production URL');
+    assert(sentEmail.resetLink.includes('https://rkhero01.github.io/dexa-consult/platform.html?resetToken='), 'Reset link uses production GitHub Pages URL');
     assert(sentEmail.resetLink.includes('&role=patient'), 'Reset link includes role=patient');
     console.log('   ✓ Clickable password reset email dispatched with secure production link');
 

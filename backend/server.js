@@ -61,15 +61,37 @@ const MIME_TYPES = {
   '.woff2': 'font/woff2',
 };
 
+const ALLOWED_ORIGINS = [
+  'https://rkhero01.github.io',
+  'https://dexa-consult.onrender.com',
+  'http://localhost:4000',
+  'http://localhost:4001',
+  'http://localhost:3000',
+  'http://127.0.0.1:4000',
+  'http://127.0.0.1:4001',
+  'http://127.0.0.1:3000',
+];
+
+function getCorsOrigin(req) {
+  const reqOrigin = (req && req.headers ? req.headers['origin'] : '') || '';
+  if (!reqOrigin) return 'https://rkhero01.github.io';
+  if (ALLOWED_ORIGINS.includes(reqOrigin) || reqOrigin.endsWith('.github.io')) {
+    return reqOrigin;
+  }
+  return 'https://rkhero01.github.io';
+}
+
 function serveStaticFile(res, filePath, isHead = false) {
   try {
     if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) return false;
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    const origin = getCorsOrigin(res.req);
     if (isHead) {
       res.writeHead(200, {
         'Content-Type': contentType,
-        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Origin': origin,
+        'Vary': 'Origin',
       });
       res.end();
       return true;
@@ -77,7 +99,8 @@ function serveStaticFile(res, filePath, isHead = false) {
     const content = fs.readFileSync(filePath);
     res.writeHead(200, {
       'Content-Type': contentType,
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': origin,
+      'Vary': 'Origin',
     });
     res.end(content);
     return true;
@@ -87,9 +110,11 @@ function serveStaticFile(res, filePath, isHead = false) {
 }
 
 function send(res, status, body) {
+  const origin = getCorsOrigin(res.req);
   res.writeHead(status, {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': origin,
+    'Vary': 'Origin',
   });
   res.end(JSON.stringify(body));
 }
@@ -118,10 +143,13 @@ function readBody(req) {
 const server = http.createServer(async (req, res) => {
   // CORS preflight
   if (req.method === 'OPTIONS') {
+    const origin = getCorsOrigin(req);
     res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': origin,
       'Access-Control-Allow-Methods': 'GET,POST,PATCH,OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Access-Control-Max-Age': '86400',
+      'Vary': 'Origin',
     });
     return res.end();
   }
@@ -140,7 +168,7 @@ const server = http.createServer(async (req, res) => {
       const token = match ? match[1] : (url.searchParams.get('token') || '');
       const doctor = authCtrl.authenticateDoctor({ headers: { authorization: `Bearer ${token}` } });
       if (!doctor) {
-        res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': getCorsOrigin(req), 'Vary': 'Origin' });
         return res.end(JSON.stringify({ error: 'Login required' }));
       }
       return require('./sse').subscribeDoctor(doctor.id, res);
