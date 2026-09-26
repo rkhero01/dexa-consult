@@ -400,11 +400,9 @@ async function persistUpsertPostgres(collection, record) {
       .map((k) => `${k} = EXCLUDED.${k}`)
       .join(', ');
 
-    const sql = `
-      INSERT INTO ${collection} (${cols})
-      VALUES (${placeholders})
-      ON CONFLICT (id) DO UPDATE SET ${updateClauses};
-    `;
+    const sql = updateClauses.length > 0
+      ? `INSERT INTO ${collection} (${cols}) VALUES (${placeholders}) ON CONFLICT (id) DO UPDATE SET ${updateClauses};`
+      : `INSERT INTO ${collection} (${cols}) VALUES (${placeholders}) ON CONFLICT (id) DO NOTHING;`;
 
     const values = keys.map((k) => {
       const val = dbRow[k];
@@ -424,7 +422,8 @@ async function persistUpsertPostgres(collection, record) {
 // Database Initialization (PostgreSQL or JSON fallback)
 // -------------------------------------------------------------
 async function init(customDbUrl = null) {
-  if (initPromise) return initPromise;
+  if (initPromise && !customDbUrl) return initPromise;
+
 
   initPromise = (async () => {
     const dbUrl = customDbUrl || process.env.DATABASE_URL;
