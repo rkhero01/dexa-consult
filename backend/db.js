@@ -17,6 +17,7 @@ const FILES = {
   patients: path.join(DATA_DIR, 'patients.json'),
   sessions: path.join(DATA_DIR, 'sessions.json'),
   transactions: path.join(DATA_DIR, 'transactions.json'),
+  attachments: path.join(DATA_DIR, 'attachments.json'),
 };
 
 function readAll(collection) {
@@ -68,5 +69,7 @@ module.exports = {
   patients: makeCollection('patients'),
   sessions: makeCollection('sessions'),
   transactions: makeCollection('transactions'),
+  attachments: makeCollection('attachments'),
   genId: id,
 };
+

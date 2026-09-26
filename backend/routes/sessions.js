@@ -53,37 +53,8 @@ module.exports = {
 
     const now = new Date().toISOString();
 
-    if (type === 'chat') {
-      // Chat sessions start immediately active as before
-      const session = db.sessions.insert({
-        patientId,
-        doctorId,
-        type,
-        status: 'active',
-        ratePerMin,
-        elapsedSec: 0,
-        amountCharged: 0,
-        requestedAt: now,
-        acceptedAt: now,
-        billingStartTime: now,
-        startTime: now,
-        channelName: `consult_${db.genId()}`,
-      });
-
-      db.doctors.update(doctorId, { status: 'busy' });
-      billingEngine.startBilling(session.id);
-
-      return {
-        status: 201,
-        body: {
-          ...session,
-          eventsUrl: `/api/sessions/${session.id}/events`,
-          billingTickSeconds: billingEngine.TICK_SEC,
-        },
-      };
-    }
-
-    // CALL & VIDEO CALL: must create a PENDING request (ringing), NOT active, NOT billable yet
+    // ALL CONSULTATION TYPES (chat, call, video): must create a PENDING request,
+    // NOT active, NOT billable yet until doctor accepts.
     const session = db.sessions.insert({
       patientId,
       doctorId,
@@ -98,6 +69,7 @@ module.exports = {
       startTime: null,
       endedAt: null,
       channelName: `consult_${db.genId()}`,
+      messages: [],
     });
 
     // Notify doctor immediately via real-time SSE stream without requiring a refresh
@@ -303,24 +275,48 @@ module.exports = {
     sse.subscribe(id, res);
   },
 
-  // POST /api/sessions/:id/chat  { sender: 'patient'|'doctor', message }
+  // POST /api/sessions/:id/chat  { sender: 'patient'|'doctor', message, type?, attachment? }
   chat(id, body) {
     const session = db.sessions.find(id);
     if (!session) return { status: 404, body: { error: 'Session not found' } };
     if (session.type !== 'chat') {
       return { status: 400, body: { error: 'This session is not a chat session' } };
     }
-    if (session.status !== 'active') {
-      return { status: 409, body: { error: 'Session has ended' } };
+    if (['ended', 'rejected', 'cancelled', 'expired'].includes(session.status)) {
+      return { status: 409, body: { error: 'Consultation has ended' } };
     }
+
+    const msg = {
+      id: db.genId(),
+      sender: body && body.sender ? body.sender : 'patient',
+      message: body && body.message ? String(body.message) : '',
+      type: (body && body.type) || (body && body.attachment ? body.attachment.type : 'text'),
+      attachment: (body && body.attachment) || null,
+      at: new Date().toISOString(),
+      isPreAcceptance: session.status === 'pending',
+    };
+
+    const currentMessages = Array.isArray(session.messages) ? session.messages : [];
+    currentMessages.push(msg);
+    db.sessions.update(id, { messages: currentMessages });
+
+    if (msg.attachment && msg.attachment.id) {
+      db.attachments.update(msg.attachment.id, { sessionId: id });
+    }
+
     sse.broadcast(id, {
       event: 'chat_message',
       sessionId: id,
-      sender: body.sender,
-      message: body.message,
-      at: new Date().toISOString(),
+      ...msg,
     });
-    return { status: 200, body: { delivered: true } };
+    return { status: 200, body: { delivered: true, message: msg } };
+  },
+
+  // GET /api/sessions/:id/messages
+  messages(id) {
+    const session = db.sessions.find(id);
+    if (!session) return { status: 404, body: { error: 'Session not found' } };
+    return { status: 200, body: { messages: session.messages || [] } };
   },
 
   // POST /api/sessions/:id/signal  { from: 'caller'|'callee', data: {...} }

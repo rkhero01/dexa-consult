@@ -252,8 +252,8 @@ async function main() {
     assert.strictEqual(docAfter.status, 'online');
   });
 
-  // 8. Chat behaviour preserved
-  test('Chat behaviour preserved: starts active immediately and is billable', () => {
+  // 8. Chat lifecycle aligned: pending -> doctor accepts -> active -> billing begins -> ended
+  await runAsyncTest('Chat lifecycle aligned: pending -> doctor accepts -> active -> billing begins -> ended', async () => {
     const res = sessionsCtrl.start({
       patientId: testPatient.id,
       doctorId: testDoctor.id,
@@ -262,12 +262,22 @@ async function main() {
     assert.strictEqual(res.status, 201);
     const chatSession = res.body;
 
-    assert.strictEqual(chatSession.status, 'active');
-    assert.ok(chatSession.billingStartTime);
+    assert.strictEqual(chatSession.status, 'pending', 'Chat session must start as pending');
+    assert.strictEqual(chatSession.billingStartTime, null, 'billingStartTime must be null while pending');
+    assert.strictEqual(chatSession.amountCharged, 0, 'amountCharged must be 0 while pending');
     assert.strictEqual(chatSession.ratePerMin, 10);
 
-    const doc = db.doctors.find(testDoctor.id);
-    assert.strictEqual(doc.status, 'busy');
+    const docBeforeAccept = db.doctors.find(testDoctor.id);
+    assert.strictEqual(docBeforeAccept.status, 'online', 'Doctor remains online until accepting chat');
+
+    // Doctor accepts chat
+    const accRes = sessionsCtrl.accept(chatSession.id, testDoctor.id);
+    assert.strictEqual(accRes.status, 200);
+    assert.strictEqual(accRes.body.status, 'active');
+    assert.ok(accRes.body.billingStartTime, 'billingStartTime must be set upon acceptance');
+
+    const docBusy = db.doctors.find(testDoctor.id);
+    assert.strictEqual(docBusy.status, 'busy');
 
     // End chat
     const endRes = sessionsCtrl.end(chatSession.id);

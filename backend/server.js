@@ -41,6 +41,7 @@ const sessionsCtrl = require('./routes/sessions');
 const authCtrl = require('./auth');
 const meDoctorCtrl = require('./routes/meDoctor');
 const mePatientCtrl = require('./routes/mePatient');
+const chatUploadCtrl = require('./routes/chatUpload');
 
 const PORT = process.env.PORT || 4000;
 const ROOT_DIR = path.resolve(__dirname, '..');
@@ -174,6 +175,24 @@ const server = http.createServer(async (req, res) => {
       return require('./sse').subscribeDoctor(doctor.id, res);
     }
 
+    // --- Chat Attachment Serving (streams binary file securely with auth) ---
+    if (parts[0] === 'api' && parts[1] === 'chat' && parts[2] === 'attachment' && parts[3] && req.method === 'GET') {
+      const query = Object.fromEntries(url.searchParams);
+      return chatUploadCtrl.serveAttachment(req, res, parts[3], query, getCorsOrigin);
+    }
+    if (parts[0] === 'api' && parts[1] === 'sessions' && parts[3] === 'attachment' && parts[4] && req.method === 'GET') {
+      const query = Object.fromEntries(url.searchParams);
+      return chatUploadCtrl.serveAttachment(req, res, parts[4], query, getCorsOrigin);
+    }
+
+    // --- Chat Attachment Upload (handles multipart/form-data or JSON with base64) ---
+    if (parts[0] === 'api' && ((parts[1] === 'chat' && parts[2] === 'upload') || (parts[1] === 'sessions' && parts[3] === 'upload')) && req.method === 'POST') {
+      const query = Object.fromEntries(url.searchParams);
+      if (parts[1] === 'sessions' && parts[2]) query.sessionId = parts[2];
+      const uploadResult = await chatUploadCtrl.handleUpload(req, res, query);
+      return reply(res, uploadResult);
+    }
+
     const body = ['POST', 'PATCH'].includes(req.method) ? await readBody(req) : {};
     const query = Object.fromEntries(url.searchParams);
 
@@ -285,6 +304,9 @@ const server = http.createServer(async (req, res) => {
     if (parts[0] === 'api' && parts[1] === 'sessions' && parts[3] === 'signal' && req.method === 'POST') {
       return reply(res, sessionsCtrl.signal(parts[2], body));
     }
+    if (parts[0] === 'api' && parts[1] === 'sessions' && parts[3] === 'messages' && req.method === 'GET') {
+      return reply(res, sessionsCtrl.messages(parts[2]));
+    }
     if (parts[0] === 'api' && parts[1] === 'sessions' && parts.length === 3 && req.method === 'GET') {
       return reply(res, sessionsCtrl.get(parts[2]));
     }
@@ -310,6 +332,13 @@ const server = http.createServer(async (req, res) => {
       // Serve requested static file (e.g. /platform.html, /index.html, /Image/...)
       const safePath = path.normalize(decodeURIComponent(url.pathname)).replace(/^(\.\.[\/\\])+/, '');
       const filePath = path.join(ROOT_DIR, safePath);
+
+      // Security: Do NOT serve files directly from backend/data or backend/data/uploads via static route
+      const privateDataDir = path.join(ROOT_DIR, 'backend', 'data');
+      if (filePath.startsWith(privateDataDir)) {
+        return send(res, 403, { error: 'Access denied: Attachments require authentication' });
+      }
+
       // Prevent directory traversal
       if (filePath.startsWith(ROOT_DIR) && serveStaticFile(res, filePath, isHead)) {
         return;
