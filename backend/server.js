@@ -35,6 +35,7 @@ function loadEnvFile(envPath) {
 loadEnvFile(path.resolve(__dirname, '../.env'));
 loadEnvFile(path.resolve(__dirname, '.env'));
 
+const db = require('./db');
 const doctorsCtrl = require('./routes/doctors');
 const walletCtrl = require('./routes/wallet');
 const sessionsCtrl = require('./routes/sessions');
@@ -313,7 +314,11 @@ const server = http.createServer(async (req, res) => {
 
     // Health check endpoint
     if (parts[0] === 'api' && parts[1] === 'health') {
-      return send(res, 200, { status: 'ClinicOS consult module running', time: new Date().toISOString() });
+      return send(res, 200, {
+        status: 'ClinicOS consult module running',
+        database: db.isPostgres ? 'postgresql' : 'json_fallback',
+        time: new Date().toISOString(),
+      });
     }
 
     // Static files & Root handler
@@ -326,7 +331,11 @@ const server = http.createServer(async (req, res) => {
           const platformPath = path.join(ROOT_DIR, 'platform.html');
           if (serveStaticFile(res, platformPath, isHead)) return;
         }
-        return send(res, 200, { status: 'ClinicOS consult module running', time: new Date().toISOString() });
+        return send(res, 200, {
+          status: 'ClinicOS consult module running',
+          database: db.isPostgres ? 'postgresql' : 'json_fallback',
+          time: new Date().toISOString(),
+        });
       }
 
       // Serve requested static file (e.g. /platform.html, /index.html, /Image/...)
@@ -352,6 +361,17 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`ClinicOS consult module listening on http://localhost:${PORT}`);
-});
+async function start() {
+  await db.init();
+  server.listen(PORT, () => {
+    console.log(`ClinicOS consult module listening on http://localhost:${PORT}`);
+    if (db.isPostgres) {
+      console.log('[DB] Production PostgreSQL database is connected and active.');
+    } else {
+      console.log('[DB] Running with local JSON storage.');
+    }
+  });
+}
+
+start();
+

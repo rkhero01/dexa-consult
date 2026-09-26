@@ -1,0 +1,13 @@
+{
+  "name": "dexa-consult",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dexa Consult platform and consultation module",
+  "scripts": {
+    "postinstall": "cd backend && npm install",
+    "start": "node backend/server.js"
+  },
+  "dependencies": {
+    "pg": "^8.23.0"
+  }
+}

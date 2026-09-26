@@ -5798,36 +5798,68 @@
         session.token = savedToken;
         session.role = savedRole;
 
-        // Step 3: Call the appropriate /api/me endpoint to verify user
+        // Step 3: Call the appropriate /api/me endpoint with retry for Render cold start
         const endpoint = savedRole === 'doctor' ? '/api/me/doctor' : '/api/me/patient';
-        try {
-          const me = await api(endpoint, 'GET', null, savedToken);
-          // Step 4: If API returns valid user, restore session and dashboard
-          if (me && me.id) {
-            session.me = me;
-            await enterApp(me);
-          } else {
-            // Invalid user payload indicates bad session
-            logout();
-          }
-        } catch (e) {
-          // Step 5: If API returns 401/invalid token: clear saved authentication data and show login
-          if (e && e.status === 401) {
-            console.warn('Session expired or revoked (401 Unauthorized). Resetting local session.');
-            logout();
-          } else {
-            // Network error / server waking up (Render cold start)
-            // Do NOT automatically logout merely because the page was reopened!
-            console.warn('Consult server temporarily unreachable, preserving local session:', e);
-            try {
-              await enterApp();
-              toast('Connecting to consult server… Session restored.', 'ok');
-            } catch (enterErr) {
-              console.error('Error restoring cached UI:', enterErr);
+        let me = null;
+        let attempts = 0;
+        const maxAttempts = 6;
+        let isColdStart = false;
+
+        while (attempts < maxAttempts) {
+          attempts++;
+          try {
+            me = await api(endpoint, 'GET', null, savedToken);
+            if (me && me.id) {
+              break; // Successfully authenticated!
+            } else {
+              // Server returned unexpected non-user payload
+              logout();
+              return;
+            }
+          } catch (e) {
+            if (e && e.status === 401) {
+              // ONLY HTTP 401 Unauthorized invalidates local session
+              console.warn('Session expired or revoked (401 Unauthorized). Resetting local session.');
+              logout();
+              return;
+            }
+
+            // Network error / Render sleeping / cold start / temporary gateway 502/503/504
+            isColdStart = true;
+            console.warn(`[Session Restore] Backend waking up / cold start (attempt ${attempts}/${maxAttempts}):`, e.message || e);
+
+            if (attempts === 1) {
+              toast('Waking up consult server… please wait a moment.', 'info');
+            }
+
+            if (attempts < maxAttempts) {
+              // Exponential backoff: 2s, 3s, 5s, 7s, 10s
+              const delay = Math.min(10000, attempts * 2000);
+              await new Promise((resolve) => setTimeout(resolve, delay));
             }
           }
         }
+
+        if (me && me.id) {
+          session.me = me;
+          if (isColdStart) {
+            toast('Connected! Session restored.', 'ok');
+          }
+          await enterApp(me);
+        } else {
+          // Server was temporarily unreachable after retries (e.g. offline device)
+          // DO NOT LOGOUT! Keep the saved session token intact so user is not logged out
+          console.warn('[Session Restore] Server unreachable after retries. Preserving local authentication.');
+          toast("Connecting to consult server… Please check your connection or refresh shortly.", 'info');
+        }
       }
+
+      // 3. Keep-alive heartbeat: prevent Render free-tier from idling out while tab is active
+      setInterval(() => {
+        if (session && session.token && !document.hidden) {
+          fetch(API + '/api/health').catch(() => {});
+        }
+      }, 4 * 60 * 1000);
     })();
   </script>
 </body>
